@@ -88,11 +88,12 @@ ENV/
 .idea/
 *.db
 .DS_Store
+# Django migrations: generated per environment; only keep __init__.py in git
 **/migrations/*.py
 !**/migrations/__init__.py
+**/migrations/*.sql
 *.pyc
-conf/*
-!conf/env.example.py
+conf/env.py
 db.sqlite3
 media/
 __pypackages__/

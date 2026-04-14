@@ -12,26 +12,26 @@ from application.settings import BASE_DIR
 
 # PostgreSQL（docker-compose 默认）
 DATABASE_ENGINE = "django.db.backends.postgresql"
-DATABASE_NAME = "django_vue3_admin"
+DATABASE_NAME = "butler-service-db-dev"
 
 # 数据库地址 改为自己数据库地址
-DATABASE_HOST = '127.0.0.1'
+DATABASE_HOST = '117.62.232.51'
 # # 数据库端口
-DATABASE_PORT = 5432
+DATABASE_PORT = 5433
 # # 数据库用户名
-DATABASE_USER = "postgres"
+DATABASE_USER = "admin"
 # # 数据库密码
-DATABASE_PASSWORD = 'DVADMIN3'
+DATABASE_PASSWORD = 'admin123456'
 
 # 表前缀
-TABLE_PREFIX = "dvadmin_"
+TABLE_PREFIX = "butler_service_"
 # ================================================= #
 # ******** redis配置，无redis 可不进行配置  ******** #
 # ================================================= #
 REDIS_DB = 1
 CELERY_BROKER_DB = 3
-REDIS_PASSWORD = 'DVADMIN3'
-REDIS_HOST = '127.0.0.1'
+REDIS_PASSWORD = 'bVxfkWdklfI0'
+REDIS_HOST = '117.62.232.51'
 REDIS_URL = f'redis://:{REDIS_PASSWORD or ""}@{REDIS_HOST}:6379'
 # ================================================= #
 # ****************** 功能 启停  ******************* #

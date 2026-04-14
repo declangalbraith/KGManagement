@@ -1,4 +1,5 @@
 <template>
+	<div class="login-index-wrap">
 	<div class="login-container flex z-10">
 		<div class="login-left">
 			<div class="login-left-logo">
@@ -73,6 +74,7 @@
 	<div v-if="loginBg">
 		<img :src="loginBg" class="loginBg fixed inset-0 z-1 w-full h-full" />
 	</div>
+	</div>
 </template>
 
 <script setup lang="ts" name="loginIndex">
@@ -145,6 +147,12 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
+.login-index-wrap {
+	height: 100%;
+	width: 100%;
+	position: relative;
+}
+
 .login-container {
 	height: 100%;
 	background: var(--el-color-white);

@@ -5,6 +5,7 @@
 .history/
 .vscode/
 web/package-lock.json
+.pnpm-store/
 
 .playwright-mcp/
 /backend/db.sqlite3-wal
