@@ -13,27 +13,19 @@
 						}
 					"
 					:class="{ 'layout-columns-active': state.liIndex === k, 'layout-columns-hover': state.liHoverIndex === k }"
-					:title="$t(v.meta.title)"
+					:title="resolveRouteMetaTitle(v.meta.title)"
 				>
 					<div :class="themeConfig.columnsAsideLayout" v-if="!v.meta.isLink || (v.meta.isLink && v.meta.isIframe)">
 						<SvgIcon :name="v.meta.icon" />
 						<div class="columns-vertical-title font12">
-							{{
-								$t(v.meta.title) && $t(v.meta.title).length >= 4
-									? $t(v.meta.title).substr(0, themeConfig.columnsAsideLayout === 'columns-vertical' ? 4 : 3)
-									: $t(v.meta.title)
-							}}
+							{{ columnsAsideMenuLabel(v.meta.title) }}
 						</div>
 					</div>
 					<div :class="themeConfig.columnsAsideLayout" v-else>
 						<a :href="v.meta.isLink" target="_blank">
 							<SvgIcon :name="v.meta.icon" />
 							<div class="columns-vertical-title font12">
-								{{
-									$t(v.meta.title) && $t(v.meta.title).length >= 4
-										? $t(v.meta.title).substr(0, themeConfig.columnsAsideLayout === 'columns-vertical' ? 4 : 3)
-										: $t(v.meta.title)
-								}}
+								{{ columnsAsideMenuLabel(v.meta.title) }}
 							</div>
 						</a>
 					</div>
@@ -52,6 +44,7 @@ import pinia from '/@/stores/index';
 import { useRoutesList } from '/@/stores/routesList';
 import { useThemeConfig } from '/@/stores/themeConfig';
 import mittBus from '/@/utils/mitt';
+import { resolveRouteMetaTitle } from '/@/utils/other';
 
 // 定义变量内容
 const columnsAsideOffsetTopRefs = ref<RefType>([]);
@@ -61,6 +54,15 @@ const storesThemeConfig = useThemeConfig();
 const { routesList, isColumnsMenuHover, isColumnsNavHover } = storeToRefs(stores);
 const { themeConfig } = storeToRefs(storesThemeConfig);
 const route = useRoute();
+
+/** Short label for column layout menu (same logic as before, without treating API titles as i18n keys). */
+const columnsAsideMenuLabel = (title: string | undefined) => {
+	const text = resolveRouteMetaTitle(title ?? '');
+	if (!text) return '';
+	return text.length >= 4
+		? text.substr(0, themeConfig.value.columnsAsideLayout === 'columns-vertical' ? 4 : 3)
+		: text;
+};
 const router = useRouter();
 const state = reactive<ColumnsAsideState>({
 	columnsAsideList: [],

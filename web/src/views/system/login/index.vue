@@ -28,7 +28,7 @@
 									<Account />
 								</el-tab-pane>
 
-								<!-- TODO 手机号码登录未接入，展示隐藏 -->
+								<!-- 手机号登录、二维码登录：已按需求隐藏
 								<el-tab-pane :label="$t('message.pages.login.label.two2')" name="mobile">
 									<Mobile />
 								</el-tab-pane>
@@ -36,6 +36,7 @@
                 <el-tab-pane :label="$t('message.pages.login.label.two3')" name="scan">
 									<scan />
 								</el-tab-pane>
+								-->
 
 
 							</el-tabs>
@@ -86,8 +87,8 @@ import { SystemConfigStore } from '/@/stores/systemConfig'
 import { getBaseURL } from "/@/utils/baseUrl";
 // 引入组件
 const Account = defineAsyncComponent(() => import('/@/views/system/login/component/account.vue'));
-const Mobile = defineAsyncComponent(() => import('/@/views/system/login/component/mobile.vue'));
-const Scan = defineAsyncComponent(() => import('/@/views/system/login/component/scan.vue'));
+// const Mobile = defineAsyncComponent(() => import('/@/views/system/login/component/mobile.vue'));
+// const Scan = defineAsyncComponent(() => import('/@/views/system/login/component/scan.vue'));
 const ChangePwd = defineAsyncComponent(() => import('/@/views/system/login/component/changePwd.vue'));
 const OAuth2 = defineAsyncComponent(() => import('/@/views/system/login/component/oauth2.vue'));
 

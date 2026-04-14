@@ -38,6 +38,13 @@
 				  </div>
 			  </el-col>
 		</el-row>
+		  <el-row :gutter="15" class="home-card-pie mb15">
+			  <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24">
+				  <div class="home-card-item">
+					  <div style="height: 100%" ref="homePieRef"></div>
+				  </div>
+			  </el-col>
+		</el-row>
 		  <el-row :gutter="15" class="home-card-three">
 			<el-col :span="24" :xs="24" :sm="24" :md="24" :lg="24" :xl="24" class="home-media">
 				<div class="home-card-item">
@@ -307,6 +314,7 @@ export default defineComponent({
 		};
 		// 饼图
 		const initPieChart = () => {
+			if (!homePieRef.value) return;
 			if (!global.dispose.some((b: any) => b === global.homeChartTwo)) global.homeChartTwo.dispose();
 			global.homeChartTwo = <any>echarts.init(homePieRef.value, state.charts.theme);
 			var getname = [
@@ -720,8 +728,8 @@ animation: scrollText 5s linear infinite;
     }
   }
 
-  // 卡片组二和三（大卡片）
-  .home-card-two, .home-card-three {
+  // 卡片组二、饼图和三（大卡片）
+  .home-card-two, .home-card-pie, .home-card-three {
     position: relative;
     left: 15px;
     right: 15px;

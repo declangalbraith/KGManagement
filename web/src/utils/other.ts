@@ -10,6 +10,19 @@ import { Local } from '/@/utils/storage';
 import { verifyUrl } from '/@/utils/toolsValidate';
 import {SystemConfigStore} from "/@/stores/systemConfig";
 
+/**
+ * `meta.title` is either a vue-i18n key (e.g. message.router.home) or plain text from the menu API (already localized).
+ * Only run through `t()` when the key exists in locale messages to avoid intlify missing-key warnings.
+ */
+export function resolveRouteMetaTitle(title: string | undefined | null): string {
+	if (title == null || title === '') return '';
+	const g = i18n.global;
+	if (g.te(title)) {
+		return String(g.t(title));
+	}
+	return title;
+}
+
 // 引入组件
 const SvgIcon = defineAsyncComponent(() => import('/@/components/svgIcon/index.vue'));
 
@@ -91,7 +104,7 @@ export function setTagsViewNameI18n(item: any) {
 		}
 	} else {
 		// 非自定义 tagsView 名称
-		tagsViewName = i18n.global.t(meta.title);
+		tagsViewName = resolveRouteMetaTitle(meta.title);
 	}
 	return tagsViewName;
 }

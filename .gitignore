@@ -13,3 +13,5 @@ web/test-results/
 
 # Superpowers planning docs
 docs/superpowers/
+
+.pnpm-store/

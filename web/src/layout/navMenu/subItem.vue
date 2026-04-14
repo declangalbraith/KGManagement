@@ -3,7 +3,7 @@
 		<el-sub-menu :index="val.path" :key="val.path" v-if="val.children && val.children.length > 0">
 			<template #title>
 				<SvgIcon :name="val.meta.icon" />
-				<span>{{ $t(val.meta.title) }}</span>
+				<span>{{ resolveRouteMetaTitle(val.meta.title) }}</span>
 			</template>
 			<sub-item :chil="val.children" />
 		</el-sub-menu>
@@ -12,12 +12,12 @@
         <el-menu-item   :key="val.path">
           <template v-if="!val.meta.isLink || (val.meta.isLink && val.meta.isIframe)">
             <SvgIcon :name="val.meta.icon" />
-            <span>{{ $t(val.meta.title) }}</span>
+					<span>{{ resolveRouteMetaTitle(val.meta.title) }}</span>
           </template>
           <template v-else>
             <a class="w100" @click.prevent="onALinkClick(val)">
               <SvgIcon :name="val.meta.icon" />
-              {{ $t(val.meta.title) }}
+              {{ resolveRouteMetaTitle(val.meta.title) }}
             </a>
           </template>
         </el-menu-item>
@@ -25,12 +25,12 @@
 			<el-menu-item v-else :index="val.path" :key="val.path">
 				<template v-if="!val.meta.isLink || (val.meta.isLink && val.meta.isIframe)">
 					<SvgIcon :name="val.meta.icon" />
-					<span>{{ $t(val.meta.title) }}</span>
+					<span>{{ resolveRouteMetaTitle(val.meta.title) }}</span>
 				</template>
 				<template v-else>
 					<a class="w100" @click.prevent="onALinkClick(val)">
 						<SvgIcon :name="val.meta.icon" />
-						{{ $t(val.meta.title) }}
+						{{ resolveRouteMetaTitle(val.meta.title) }}
 					</a>
 				</template>
 			</el-menu-item>
@@ -41,7 +41,7 @@
 <script setup lang="ts" name="navMenuSubItem">
 import { computed } from 'vue';
 import { RouteRecordRaw } from 'vue-router';
-import other from '/@/utils/other';
+import other, { resolveRouteMetaTitle } from '/@/utils/other';
 
 // 定义父组件传过来的值
 const props = defineProps({

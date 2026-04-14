@@ -1,7 +1,7 @@
 <template>
   <fs-page>
     <el-row class="mx-2">
-      <el-col xs="24" :sm="8" :md="6" :lg="4" :xl="4" class="p-1">
+      <el-col :xs="24" :sm="8" :md="6" :lg="4" :xl="4" class="p-1">
         <el-card :body-style="{ height: '100%' }">
           <p class="font-mono font-black text-center text-xl pb-5">
             {{ $t('message.pages.user.tree.deptList') }}
@@ -27,7 +27,7 @@
           </el-tree>
         </el-card>
       </el-col>
-      <el-col xs="24" :sm="16" :md="18" :lg="20" :xl="20" class="p-1">
+      <el-col :xs="24" :sm="16" :md="18" :lg="20" :xl="20" class="p-1">
         <el-card :body-style="{ height: '100%' }">
           <fs-crud ref="crudRef" v-bind="crudBinding">
             <template #actionbar-right>
