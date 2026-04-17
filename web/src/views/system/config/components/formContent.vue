@@ -11,7 +11,7 @@
       <el-form-item
           :prop="['array'].indexOf(item.form_item_type_label) > -1 ? '' : item.key"
           :key="index"
-          :rules="item.rule || []"
+          :rules="item.form_item_type_label === 'switch' ? [] : (item.rule || [])"
           v-for="(item, index) in formList"
       >
         <el-col :span="4">

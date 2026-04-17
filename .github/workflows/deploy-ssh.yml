@@ -1,0 +1,75 @@
+# Manual deploy: SSH to server, pull branch, run ./init.sh (see init.sh for backend / backend --deps / frontend).
+#
+# Required repository secrets:
+#   SSH_HOST        — server hostname or IP
+#   SSH_USER        — SSH login user
+#   SSH_PRIVATE_KEY — private key (PEM), full multiline key including BEGIN/END lines
+#   DEPLOY_PATH     — absolute path to this repo root on the server (e.g. /home/deploy/butler-service)
+#
+# Prerequisites on the server:
+#   - Git remote can pull (deploy key or credential helper already configured)
+#   - Docker / docker compose available to the SSH user
+#   - For frontend: Node/pnpm available where init.sh runs (init.sh uses pnpm in web/)
+
+name: Deploy (SSH + init.sh)
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Git branch to checkout and pull"
+        required: true
+        default: "dev"
+        type: string
+      target:
+        description: "What init.sh should run (maps to ./init.sh …)"
+        required: true
+        type: choice
+        options:
+          - backend
+          - backend-deps
+          - frontend
+
+concurrency:
+  group: deploy-ssh-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy on server
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+            cd "${{ secrets.DEPLOY_PATH }}"
+            echo "Repo: $(pwd)"
+            echo "Branch: ${{ github.event.inputs.branch }}"
+            echo "Target: ${{ github.event.inputs.target }}"
+            git fetch origin
+            git checkout "${{ github.event.inputs.branch }}"
+            git pull origin "${{ github.event.inputs.branch }}"
+            chmod +x init.sh
+            case "${{ github.event.inputs.target }}" in
+              backend)
+                ./init.sh backend
+                ;;
+              backend-deps)
+                ./init.sh backend --deps
+                ;;
+              frontend)
+                ./init.sh frontend
+                ;;
+              *)
+                echo "Unknown target"
+                exit 1
+                ;;
+            esac

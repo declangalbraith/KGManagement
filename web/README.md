@@ -1,4 +1,6 @@
-# Django-Vue3-Admin
+# Django-Vue3-Admin（`web/` 子项目）
+
+> **部署与 Docker Compose（local_prod）**：请以仓库**根目录**的 [README.zh.md](../README.zh.md) / [README.md](../README.md) 为准；本文件仅补充前端目录下的本地开发说明，避免与根文档重复。
 
 [![img](https://img.shields.io/badge/license-MIT-blue.svg)](https://gitee.com/liqianglog/django-vue-admin/blob/master/LICENSE)  [![img](https://img.shields.io/badge/python-%3E=3.7.x-green.svg)](https://python.org/)  [![PyPI - Django Version badge](https://img.shields.io/badge/django%20versions-3.2-blue)](https://docs.djangoproject.com/zh-hans/3.2/) [![img](https://img.shields.io/badge/node-%3E%3D%2012.0.0-brightgreen)](https://nodejs.org/zh-cn/) [![img](https://gitee.com/liqianglog/django-vue-admin/badge/star.svg?theme=dark)](https://gitee.com/liqianglog/django-vue-admin)
 
@@ -107,21 +109,16 @@ Redis(可选，最新版)
 ## 前端♝
 
 ```bash
-# 克隆项目
-git clone https://gitee.com/huge-dream/django-vue3-admin.git
-
-# 进入项目目录
+# 在仓库根目录克隆后进入前端目录
 cd web
 
-# 安装依赖
-npm install --registry=https://registry.npm.taobao.org
+# 安装依赖（本仓库使用 pnpm，见 pnpm-lock.yaml）
+pnpm install
 
-# 启动服务
-npm run dev
-# 浏览器访问 http://localhost:8080
-# .env.development 文件中可配置启动端口等参数
-# 构建生产环境
-# npm run build
+# 启动开发服务
+pnpm dev
+# 浏览器访问 http://localhost:8080（端口见 .env.development）
+# 构建：pnpm build 或 pnpm run build:local（local_prod，与 init.sh frontend 一致）
 ```
 
 
@@ -158,31 +155,9 @@ npm run dev
 
 
 
-### docker-compose 运行
+### docker-compose（local_prod）
 
-~~~shell
-# 先安装docker-compose (自行百度安装),执行此命令等待安装，如有使用celery插件请打开docker-compose.yml中celery 部分注释
-docker-compose up -d
-# 初始化后端数据(第一次执行即可)
-docker exec -ti dvadmin-django bash
-python manage.py makemigrations 
-python manage.py migrate
-python manage.py init_area
-python manage.py init
-exit
-
-前端地址：http://127.0.0.1:8080
-后端地址：http://127.0.0.1:8080/api
-# 在服务器上请把127.0.0.1 换成自己公网ip
-账号：superadmin 密码：admin123456
-
-# docker-compose 停止
-docker-compose down
-#  docker-compose 重启
-docker-compose restart
-#  docker-compose 启动时重新进行 build
-docker-compose up -d --build
-~~~
+不在此重复；请参阅仓库根目录 [README.zh.md](../README.zh.md) 中的 `./init.sh backend` / `./init.sh frontend` 与端口说明。
 
 
 

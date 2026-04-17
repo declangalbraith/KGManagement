@@ -1,4 +1,6 @@
-# Django-Vue3-Admin
+# Django-Vue3-Admin (`web/` subproject)
+
+> **Docker Compose (local_prod)**: see the repository root [README.md](../README.md) / [README.zh.md](../README.zh.md). This file only adds local frontend notes; deployment is not duplicated here.
 
 [![img](https://img.shields.io/badge/license-MIT-blue.svg)](https://gitee.com/huge-dream/django-vue3-admin/blob/master/LICENSE)  [![img](https://img.shields.io/badge/python-%3E=3.7.x-green.svg)](https://python.org/)  [![PyPI - Django Version badge](https://img.shields.io/badge/django%20versions-3.2-blue)](https://docs.djangoproject.com/zh-hans/3.2/) [![img](https://img.shields.io/badge/node-%3E%3D%2012.0.0-brightgreen)](https://nodejs.org/zh-cn/) [![img](https://gitee.com/huge-dream/django-vue3-admin/badge/star.svg?theme=dark)](https://gitee.com/huge-dream/django-vue3-admin)
 
@@ -75,21 +77,14 @@ Redis(Optional, the latest edition)
 ## frontend♝
 
 ```bash
-# clone code
-git clone https://gitee.com/huge-dream/django-vue3-admin.git
-
-# enter code dir
 cd web
 
-# install dependence
-npm install --registry=https://registry.npm.taobao.org
+# install (this repo uses pnpm; see pnpm-lock.yaml)
+pnpm install
 
-# Start service
-npm run dev
-# Visit http://localhost:8080 in your browser
-# Parameters such as boot port can be configured in the #.env.development file
-# Build the production environment
-# npm run build
+pnpm dev
+# http://localhost:8080 — port in .env.development
+# build: pnpm build or pnpm run build:local (local_prod, same as init.sh frontend)
 ```
 
 ## backend💈
@@ -120,30 +115,9 @@ or daphne :
 * visit url：[http://localhost:8080](http://localhost:8080) (The default address is this one. If you want to change it, follow the configuration file)
 * account：`superadmin` password：`admin123456`
 
-### docker-compose
+### docker-compose (local_prod)
 
-~~~shell
-docker-compose up -d
-# Initialize backend data (first execution only)
-docker exec -ti dvadmin-django bash
-python manage.py makemigrations 
-python manage.py migrate
-python manage.py init_area
-python manage.py init
-exit
-
-frontend url：http://127.0.0.1:8080
-backend url：http://127.0.0.1:8080/api
-# Change 127.0.0.1 to your own public ip address on the server
-account：`superadmin` password：`admin123456`
-
-# docker-compose stop
-docker-compose down
-#  docker-compose restart
-docker-compose restart
-#  docker-compose on start build
-docker-compose up -d --build
-~~~
+See the repository root [README.md](../README.md): `./init.sh backend` then `./init.sh frontend`, ports **8084** (web) and **8004** (Django), service names **butler-service-***.
 
 ## Demo screenshot✅
 

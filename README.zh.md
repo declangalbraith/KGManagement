@@ -12,6 +12,10 @@
 
 因为热爱，所以拥抱未来!
 
+## 文档说明
+
+- **README.zh.md / README.md（仓库根目录）**：项目总览、本地开发、**Docker Compose（local_prod）与 [init.sh](init.sh)** 部署步骤。
+- **web/README.md、web/README.en.md**：随前端目录保留的说明，**部署请以根目录 README 为准**，避免与多份模板重复。
 
 ## 平台简介
 
@@ -129,16 +133,13 @@ git clone https://gitee.com/huge-dream/django-vue3-admin.git
 # 进入项目目录
 cd web
 
-# 安装依赖
-npm install yarn
-yarn install --registry=https://registry.npmmirror.com
+# 安装依赖（本仓库使用 pnpm，见 web/pnpm-lock.yaml）
+pnpm install
 
-# 启动服务
-yarn build
-# 浏览器访问 http://localhost:8080
-# .env.development 文件中可配置启动端口等参数
-# 构建生产环境
-# yarn run build
+# 启动开发服务
+pnpm dev
+# 浏览器访问 http://localhost:8080（端口见 web/.env.development）
+# 构建生产环境示例：pnpm build 或 pnpm run build:local（local_prod 模式）
 ```
 
 
@@ -177,30 +178,37 @@ yarn build
 
 
 
-### docker-compose 运行
+### docker-compose 运行（local_prod）
+
+数据库为 **PostgreSQL 16**（镜像 `postgres:16-alpine`），服务前缀为 **butler-service-***。Celery 服务在 [docker-compose.yml](docker-compose.yml) 中默认注释，需要时再取消注释。
+
+在**仓库根目录**使用 [init.sh](init.sh) 分两步部署（先后端、再构建前端并启动 Nginx 镜像）：
+
+**1. 后端**：复制 `backend/conf/env.local_prod.py` 为 `env.py`、生成根目录 `.env` 密钥、启动 Postgres/Redis/Django；在 **PostgreSQL/Redis 就绪后先 `docker restart butler-service-django`**，再执行 `makemigrations`、`migrate`、`init`（迁移与初始化在重启后的环境下执行）。若修改了 `requirements.txt` 或 `docker_env/django/Dockerfile`，请使用 `./init.sh backend --deps` 先构建 Django 镜像。
 
 ~~~shell
-# 先安装docker-compose (自行百度安装),执行此命令等待安装，如有使用celery插件请打开docker-compose.yml中celery 部分注释
-docker-compose up -d
-# 初始化后端数据(第一次执行即可)
-docker exec -ti dvadmin3-django bash
-python manage.py makemigrations 
-python manage.py migrate
-python manage.py init_area
-python manage.py init
-exit
+chmod +x init.sh
+./init.sh backend
+# 或（后端依赖 / Dockerfile 有变更）
+./init.sh backend --deps
+~~~
 
-前端地址：http://127.0.0.1:8080
-后端地址：http://127.0.0.1:8080/api
-# 在服务器上请把127.0.0.1 换成自己公网ip
+**2. 前端**：若存在 `web/dist` 会先删除，再执行 `pnpm install` 与 `pnpm run build:local`（即 `vite build --mode local_prod`），最后构建并启动 `butler-service-web` 容器：
+
+~~~shell
+./init.sh frontend
+~~~
+
+端口映射：前端 **8084**，Django **8004**，PostgreSQL **5434**，Redis **6374**（容器内仍为 8080/8000/5432/6379）。
+
+访问：http://127.0.0.1:**8084**（接口经 Nginx 反代 `/api`，一般只访问 8084 即可）
+
 账号：superadmin 密码：admin123456
 
-# docker-compose 停止
-docker-compose down
-#  docker-compose 重启
-docker-compose restart
-#  docker-compose 启动时重新进行 build
-docker-compose up -d --build
+~~~shell
+docker compose down
+docker compose restart
+docker compose up -d --build
 ~~~
 
 

@@ -19,47 +19,53 @@ docker build -f ./docker_env/django/DockerfileBuild -t registry.cn-zhangjiakou.a
 docker push registry.cn-zhangjiakou.aliyuncs.com/dvadmin-pro/dvadmin3-base-backend:latest
 ~~~
 
-### 运行前端
+### 运行前端（local_prod 构建）
+
+当前 [web/Dockerfile](web/Dockerfile) 使用 `yarn build:local`（Vite `local_prod` 模式）。
 
 ~~~
-docker build -f ./docker_env/web/Dockerfile -t dvadmin-pro-web .
+docker build -f ./docker_env/web/Dockerfile -t butler-service-web .
 ~~~
 
 ### 运行后端
 
 ~~~
-docker build -f ./docker_env/django/Dockerfile -t dvadmin-pro-django .
+docker build -f ./docker_env/django/Dockerfile -t butler-service-django .
 ~~~
 
-### 运行celery
+### 运行celery（可选）
+
+Compose 中默认已注释；需要时取消 [docker-compose.yml](../docker-compose.yml) 内 `butler-service-celery` 段后再构建：
 
 ~~~
-docker build -f ./docker_env/celery/Dockerfile -t dvadmin-pro-celery .
+docker build -f ./docker_env/celery/Dockerfile -t butler-service-celery .
 ~~~
 
-## docker-compose 运行
+## docker-compose 运行（local_prod）
+
+数据库为 **PostgreSQL 16**，服务名 **butler-service-***。一键部署请在仓库根目录执行：
 
 ~~~
-# 先安装docker-compose (自行百度安装),执行此命令等待安装，如有使用celery插件请打开docker-compose.yml中celery 部分注释
-docker-compose up -d
-# 初始化后端数据(第一次执行即可)
-docker exec -ti dvadmin-django bash
-python manage.py makemigrations 
+./init.sh local_prod
+~~~
+
+或手动：
+
+~~~
+docker compose up -d
+docker exec -it butler-service-django bash
 python manage.py migrate
-python manage.py init -y
+python manage.py init
 exit
+~~~
 
-前端地址：http://127.0.0.1:8080
-后端地址：http://127.0.0.1:8000
-# 在服务器上请把127.0.0.1 换成自己公网ip
+前端：http://127.0.0.1:**8084**  
+直连 Django：http://127.0.0.1:**8004**（调试时）
+
 账号：superadmin 密码：admin123456
 
-# docker-compose 停止
-docker-compose down
-#  docker-compose 重启
-docker-compose restart
-#  docker-compose 启动时重新进行 build
-docker-compose up -d --build
-
 ~~~
-
+docker compose down
+docker compose restart
+docker compose up -d --build
+~~~

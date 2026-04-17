@@ -1,3 +1,7 @@
+#!/bin/bash
+# NOTE: This script targets MySQL (mysql CLI). The docker-compose stack uses PostgreSQL;
+# use psql/information_schema or regenerate tooling before using against Postgres.
+
 if ! [ -f ".env" ];then
     echo ".env file not found"
     exit 1
@@ -13,7 +17,8 @@ DIR=./web/src/views/$1/$2
 
 
 # 设置数据库连接信息
-HOST="177.10.0.13"
+# 宿主机连映射端口时用 127.0.0.1；本脚本为 MySQL 示例，与当前 Compose PostgreSQL 栈不一致
+HOST="127.0.0.1"
 USER="root"
 PASSWORD=$(cat .env | grep MYSQL_PASSWORD |  sed 's/^.*MYSQL_PASSWORD=//g')
 DATABASE="django-vue3-admin"

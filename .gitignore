@@ -15,4 +15,5 @@ web/test-results/
 # Superpowers planning docs
 docs/superpowers/
 
-.pnpm-store/
+# Docker Postgres 数据目录（仅忽略内容，目录由 init.sh mkdir 创建）
+docker_env/postgres/pgdata/

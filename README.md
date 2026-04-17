@@ -9,6 +9,10 @@
 It is a completely open-source rapid development platform, provided free for personal use and authorized for group use.
 Django-Vue3-Admin is a comprehensive basic development platform based on the RBAC (Role-Based Access Control) model for permission control, with column-level granularity. It follows a frontend-backend separation architecture, with Django and Django Rest Framework used for the backend, and Vue3, Composition API, TypeScript, Vite, and Element Plus used for the frontend.
 
+## Documentation
+
+- **README.md / README.zh.md (repository root)**: overview, local dev, **Docker Compose (local_prod)** and **[init.sh](init.sh)**.
+- **web/README.md, web/README.en.md**: extra notes under `web/`; **for deployment, follow the root README** (single source of truth).
 
 ## framework introduction
 
@@ -85,16 +89,13 @@ git clone https://gitee.com/huge-dream/django-vue3-admin.git
 # enter code dir
 cd web
 
-# install dependence
-npm install yarn
-yarn install --registry=https://registry.npm.taobao.org
+# install dependencies (this repo uses pnpm; see web/pnpm-lock.yaml)
+pnpm install
 
-# Start service
-yarn run dev
-# Visit http://localhost:8080 in your browser
-# Parameters such as boot port can be configured in the #.env.development file
-# Build the production environment
-# yarn run build
+# start dev server
+pnpm dev
+# Visit http://localhost:8080 (port in web/.env.development)
+# Production build examples: pnpm build or pnpm run build:local (local_prod)
 ```
 
 ## backend💈
@@ -125,29 +126,37 @@ or uvicorn :
 * visit url：[http://localhost:8080](http://localhost:8080) (The default address is this one. If you want to change it, follow the configuration file)
 * account：`superadmin` password：`admin123456`
 
-### docker-compose
+### docker-compose (local_prod)
+
+Stack uses **PostgreSQL 16** (`postgres:16-alpine`) and **butler-service-*** service names. The Celery service is commented out in [docker-compose.yml](docker-compose.yml); uncomment when needed.
+
+Deploy from the **repository root** using [init.sh](init.sh) (two steps: backend first, then frontend build + Nginx image):
+
+1. **Backend** — copies `backend/conf/env.local_prod.py` to `env.py`, creates root `.env` secrets, starts Postgres/Redis/Django; after Postgres/Redis are ready, **`docker restart butler-service-django`** runs **before** `makemigrations` / `migrate` / `init`. If `requirements.txt` or `docker_env/django/Dockerfile` changed, run `./init.sh backend --deps` to rebuild the Django image first.
 
 ~~~shell
-docker-compose up -d
-# Initialize backend data (first execution only)
-docker exec -ti dvadmin3-django bash
-python manage.py makemigrations 
-python manage.py migrate
-python manage.py init_area
-python manage.py init
-exit
+chmod +x init.sh
+./init.sh backend
+# or (Python deps / Dockerfile changed)
+./init.sh backend --deps
+~~~
 
-frontend url：http://127.0.0.1:8080
-backend url：http://127.0.0.1:8080/api
-# Change 127.0.0.1 to your own public ip address on the server
-account：`superadmin` password：`admin123456`
+2. **Frontend** — if `web/dist` exists it is removed, then `pnpm install` and `pnpm run build:local` (`vite build --mode local_prod`), then `docker compose build` / `up` for `butler-service-web`:
 
-# docker-compose stop
-docker-compose down
-#  docker-compose restart
-docker-compose restart
-#  docker-compose on start build
-docker-compose up -d --build
+~~~shell
+./init.sh frontend
+~~~
+
+Host ports: web **8084**, Django **8004**, Postgres **5434**, Redis **6374**.
+
+Frontend: http://127.0.0.1:**8084** (API is proxied under `/api` via Nginx; Django is also exposed on **8004**).
+
+Account: `superadmin` / `admin123456`
+
+~~~shell
+docker compose down
+docker compose restart
+docker compose up -d --build
 ~~~
 
 ## Demo screenshot✅
