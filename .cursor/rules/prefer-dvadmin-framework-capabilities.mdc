@@ -1,0 +1,29 @@
+---
+description: 后端开发优先复用 dvadmin 框架能力，禁止重复造轮子
+alwaysApply: true
+---
+
+# 后端开发规范：优先使用框架已有能力
+
+- 开发 Django/DRF 后端前，先检查并优先复用 `backend/dvadmin/utils/models.py`、`serializers.py`、`viewset.py`、`filters.py`、`json_response.py`、`pagination.py`；**默认禁止**重新发明一套审计字段、CRUD、过滤、分页、响应格式。
+- **模型**：业务模型默认继承 `CoreModel`，不要重复定义 `creator`、`modifier`、`dept_belong_id`、`create_datetime`、`update_datetime`。只有明确需要软删除时，才额外使用 `SoftDeleteModel` 体系。
+- **序列化器**：模型序列化器默认继承 `CustomModelSerializer`，利用其自动审计字段、时间格式、错误字段名处理；不要直接从裸 `ModelSerializer` 起步，除非框架能力确实不适用并先说明原因。
+- **视图默认选型**：只要接口是“围绕某个模型/资源”的增删改查、分页列表、详情、批量删除、导入导出、附加动作，**必须优先继承** `CustomModelViewSet`，并通过 `queryset`、`serializer_class`、`create_serializer_class`、`update_serializer_class`、`@action` 扩展。
+- **何时才用 `APIView`**：仅限明显不适合资源型 ViewSet 的场景，例如登录/登出/验证码、初始化配置聚合、模板页面渲染、重定向、文件流/SSE、跨多个资源且难以抽成单资源动作的接口。若能挂到某个资源的 `@action`，就不要新建 `APIView`。
+- **查询/搜索/排序/分页**：优先声明 `filter_fields` 或 `filterset_class`、`search_fields`、`ordering_fields`，复用全局 `CustomDjangoFilterBackend`、`SearchFilter`、`OrderingFilter`、`CustomPagination`；**不要手写**搜索、排序、分页和列表响应，除非现有机制无法表达。
+- **时间范围与数据权限**：`CustomModelViewSet` 默认已带 `CoreModelFilterBankend` 与 `DataLevelPermissionMargeFilter`；除非需求明确要求关闭，否则不要清空 `extra_filter_class`，更不要绕过数据权限自行拼查询。
+- **响应格式**：普通 JSON 接口统一使用 `DetailResponse`、`SuccessResponse`、`ErrorResponse`；不要直接返回裸 `Response` / `dict` / 自定义 code 结构。只有 `render`、`redirect`、文件下载、流式响应等 HTTP 特殊响应才例外。
+- **路由与接口组织**：优先使用 `router.register(...)` + ViewSet；资源下的额外接口优先做成 `@action`，不要轻易新增零散 function view 或独立路由。
+- **新增能力前先复用**：在写新的基类、分页器、过滤器、响应封装、权限逻辑之前，必须先检查框架是否已有等价能力；若准备新增，先说明“检查过哪些现有组件、为什么不满足、复用方案为何不可行”。
+
+## 快速判断
+
+- `CustomModelViewSet`：一个模型的后台管理接口，且需要列表/详情/新增/修改/删除中的任意两项及以上。
+- `CustomModelViewSet + @action`：基于现有模型资源补充“重置密码、当前用户信息、批量操作、状态切换”等动作。
+- `APIView`：登录、验证码、初始化字典/配置、静态条款页面、文件流、跳转这类非典型 CRUD 接口。
+
+## 反例
+
+- 不要为了一个后台 CRUD 接口新写 `APIView` + 手动分页 + 手动 `Response({"code": ...})`。
+- 不要在新模型里重复创建审计字段，或绕开 `CustomModelSerializer` 手动写创建人/修改人赋值。
+- 不要在 `list()` 里手搓搜索/排序/分页，除非先确认 `filter_fields` / `search_fields` / `ordering_fields` / `filterset_class` 无法满足。

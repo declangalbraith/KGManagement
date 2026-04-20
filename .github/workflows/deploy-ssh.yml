@@ -47,7 +47,9 @@ jobs:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script_stop: true
+          # script_stop must be false: drone-ssh inserts exit-check lines after every line when true,
+          # which breaks multiline `case`/`if` (syntax error near ';').
+          script_stop: false
           script: |
             set -euo pipefail
             cd "${{ secrets.DEPLOY_PATH }}"

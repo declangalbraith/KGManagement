@@ -61,6 +61,8 @@ INSTALLED_APPS = [
     "channels",
     "dvadmin.system",
     "dvadmin.test_app",
+    "DeviceManagement.apps.DeviceManagementConfig",
+    "EngineerManagement.apps.EngineerManagementConfig",
 ]
 
 MIDDLEWARE = [
