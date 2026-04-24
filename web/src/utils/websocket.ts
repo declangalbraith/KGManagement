@@ -4,7 +4,7 @@ import {getWsBaseURL} from "/@/utils/baseUrl";
 // @ts-ignore
 import socket from '@/types/api/socket'
 import {useUserInfo} from "/@/stores/userInfo";
-const websocket: socket = {
+const websocket = {
     websocket: null,
     connectURL: getWsBaseURL(),
     // 开启标识
@@ -23,6 +23,7 @@ const websocket: socket = {
     reconnect_timer: null,
     // 重连频率
     reconnect_interval: 5 * 1000,
+    receive_message_handler: null as Function | null,
     init: (receiveMessage: Function | null) => {
         if (!('WebSocket' in window)) {
             message.warning('浏览器不支持WebSocket')
@@ -33,14 +34,19 @@ const websocket: socket = {
             // message.warning('websocket认证失败')
             return null
         }
+        if (receiveMessage) {
+            websocket.receive_message_handler = receiveMessage
+        }
         const wsUrl = `${getWsBaseURL()}ws/${token}/`
         websocket.websocket = new WebSocket(wsUrl)
         websocket.websocket.onmessage = (e: any) => {
-            if (receiveMessage) {
-                receiveMessage(e)
+            if (websocket.receive_message_handler) {
+                websocket.receive_message_handler(e)
             }
         }
         websocket.websocket.onclose = (e: any) => {
+            websocket.websocket = null
+            websocket.hearbeat_timer && clearInterval(websocket.hearbeat_timer)
             websocket.socket_open = false
             useUserInfo().setWebSocketState(websocket.socket_open);
             // 需要重新连接
@@ -63,18 +69,23 @@ const websocket: socket = {
         // 连接成功
         websocket.websocket.onopen = function () {
             websocket.socket_open = true
+            websocket.reconnect_current = 1
             useUserInfo().setWebSocketState(websocket.socket_open);
             websocket.is_reonnect = true
             // 开启心跳
             websocket.heartbeat()
         }
         // 连接发生错误
-        websocket.websocket.onerror = function () { }
+        websocket.websocket.onerror = function () {}
     },
     heartbeat: () => {
         websocket.hearbeat_timer && clearInterval(websocket.hearbeat_timer)
 
         websocket.hearbeat_timer = setInterval(() => {
+            if (!websocket.websocket) {
+                clearInterval(websocket.hearbeat_timer)
+                return
+            }
             let data = {
                 token: Session.get('token')
             }
@@ -82,13 +93,19 @@ const websocket: socket = {
         }, websocket.hearbeat_interval)
     },
     send: (data:string, callback = null) => {
+        if (!websocket.websocket) {
+            websocket.hearbeat_timer && clearInterval(websocket.hearbeat_timer)
+            websocket.socket_open = false
+            useUserInfo().setWebSocketState(websocket.socket_open);
+            return
+        }
         // 开启状态直接发送
-        if (websocket.websocket.readyState === websocket.websocket.OPEN) {
+        if (websocket.websocket.readyState === WebSocket.OPEN) {
             websocket.websocket.send(JSON.stringify(data))
             // @ts-ignore
             callback && callback()
         } else {
-            clearInterval(websocket.hearbeat_timer)
+            websocket.hearbeat_timer && clearInterval(websocket.hearbeat_timer)
             // message({
             //     type: 'warning',
             //     message: 'socket链接已断开',
@@ -100,7 +117,10 @@ const websocket: socket = {
     },
     close: () => {
         websocket.is_reonnect = false
-        websocket.websocket.close()
+        websocket.hearbeat_timer && clearInterval(websocket.hearbeat_timer)
+        if (websocket.websocket) {
+            websocket.websocket.close()
+        }
         websocket.websocket = null;
         websocket.socket_open = false
         useUserInfo().setWebSocketState(websocket.socket_open);
@@ -109,10 +129,14 @@ const websocket: socket = {
      * 重新连接
      */
     reconnect: () => {
-        if (websocket.websocket && !websocket.is_reonnect) {
-            websocket.close()
+        if (websocket.websocket) {
+            try {
+                websocket.websocket.close()
+            } catch {
+                /* ignore */
+            }
         }
-        websocket.init(null)
+        websocket.init(websocket.receive_message_handler)
     },
-}
+} as socket & { receive_message_handler: Function | null }
 export default websocket;

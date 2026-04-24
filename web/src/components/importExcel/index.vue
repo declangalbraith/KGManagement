@@ -41,14 +41,12 @@
 
 <script lang="ts" setup name="importExcel">
 import { request, downloadFile } from '/@/utils/service';
-import {inject,ref} from "vue";
+import { ref } from "vue";
 import { getBaseURL } from '/@/utils/baseUrl';
 import { Session } from '/@/utils/storage';
 import {  ElMessageBox } from 'element-plus'
-import type { Action } from 'element-plus'
 import { useI18n } from 'vue-i18n';
 const { t } = useI18n();
-const refreshView = inject('refreshView')
 
 let props = defineProps({
   upload: {
@@ -123,10 +121,10 @@ const handleFileSuccess=function (response:any, file:any, fileList:any) {
     }
   }).then((response:any) => {
     loading.value = false
-    ElMessageBox.alert(t('message.components.importExcel.importSuccessMsg'), t('message.components.importExcel.importSuccess'), {
+    ElMessageBox.alert(t('message.components.importExcel.importSubmittedMsg'), t('message.components.importExcel.importSubmitted'), {
       confirmButtonText: 'OK',
-      callback: (action: Action) => {
-        refreshView()
+      callback: () => {
+        uploadShow.value = false
       },
     })
   }).catch(()=>{

@@ -2,11 +2,16 @@
 import os
 import re
 from datetime import datetime
+from types import SimpleNamespace
 
 import openpyxl
 from django.conf import settings
+from django.db import transaction
+from django.utils.encoding import force_str
+from django.utils.module_loading import import_string
 from django.utils.translation import gettext_lazy as _
 
+from dvadmin.system.models import Users
 from dvadmin.utils.validator import CustomValidationError
 
 
@@ -89,3 +94,73 @@ def import_to_data(file_url, field_data, m2m_fields=None):
         tables.append(array)
     data = [i for i in tables if len(i) != 0]
     return data
+
+
+def build_import_request(user, path, method="POST"):
+    return SimpleNamespace(
+        user=user,
+        path=path,
+        method=method,
+        query_params={},
+        parser_context={"kwargs": {}},
+        data={},
+    )
+
+
+def build_import_view(viewset_path, request):
+    viewset_class = import_string(viewset_path)
+    view = viewset_class()
+    view.request = request
+    view.action = "import_data"
+    view.args = ()
+    view.kwargs = {}
+    view.format_kwarg = None
+    return view
+
+
+def get_import_queryset(view):
+    queryset = view.filter_queryset(view.get_queryset())
+    m2m_fields = [
+        ele.name
+        for ele in queryset.model._meta.get_fields()
+        if hasattr(ele, "many_to_many") and ele.many_to_many is True
+    ]
+    import_field_dict = {"id": _("Update primary key (do not modify)"), **view.import_field_dict}
+    return queryset, import_field_dict, m2m_fields
+
+
+def execute_import_rows(queryset, serializer_class, import_field_dict, file_url, request, m2m_fields=None):
+    data = import_to_data(file_url, import_field_dict, m2m_fields=m2m_fields or [])
+    with transaction.atomic():
+        for row_index, ele in enumerate(data, start=2):
+            filter_dic = {"id": ele.get("id")}
+            instance = filter_dic and queryset.filter(**filter_dic).first()
+            serializer = serializer_class(instance, data=ele, request=request)
+            if not serializer.is_valid():
+                raise CustomValidationError(
+                    _("Import failed at row %(row)s: %(error)s")
+                    % {"row": row_index, "error": force_str(serializer.errors)}
+                )
+            try:
+                serializer.save()
+            except Exception as exc:
+                raise CustomValidationError(
+                    _("Import failed at row %(row)s: %(error)s")
+                    % {"row": row_index, "error": force_str(exc)}
+                ) from exc
+    return len(data)
+
+
+def execute_import_by_view(viewset_path, user_id, file_url, request_path):
+    user = Users.objects.get(pk=user_id)
+    request = build_import_request(user=user, path=request_path)
+    view = build_import_view(viewset_path=viewset_path, request=request)
+    queryset, import_field_dict, m2m_fields = get_import_queryset(view)
+    return execute_import_rows(
+        queryset=queryset,
+        serializer_class=view.import_serializer_class,
+        import_field_dict=import_field_dict,
+        file_url=file_url,
+        request=request,
+        m2m_fields=m2m_fields,
+    )

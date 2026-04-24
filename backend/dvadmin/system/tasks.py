@@ -1,15 +1,47 @@
+import logging
+import zipfile
 from hashlib import md5
 from io import BytesIO
 from datetime import datetime
 from time import sleep
 
+from django.utils.encoding import force_str
+from django.utils.translation import gettext_lazy as _
 from openpyxl import Workbook
 from openpyxl.worksheet.table import Table, TableStyleInfo
 from openpyxl.utils import get_column_letter
 from django.core.files.base import ContentFile
 
 from application.celery import app
-from dvadmin.system.models import DownloadCenter
+from dvadmin.system.models import DownloadCenter, Users
+from dvadmin.utils.import_export import build_import_request, execute_import_by_view
+from dvadmin.utils.validator import CustomValidationError
+
+logger = logging.getLogger(__name__)
+
+
+def _import_failure_user_message(exc: BaseException) -> str:
+    if isinstance(exc, CustomValidationError):
+        return force_str(
+            _(
+                "The import could not be completed. Some data in the file is invalid. "
+                "Please check your entries against the template, then try again."
+            )
+        )
+    if isinstance(exc, (zipfile.BadZipFile, OSError)):
+        return force_str(
+            _(
+                "The import could not be completed. The file could not be read. "
+                "Please confirm the file is a valid Excel file and upload it again."
+            )
+        )
+    return force_str(
+        _(
+            "The import could not be completed. Please verify the file format and your data, then try again. "
+            "If the issue persists, contact the administrator."
+        )
+    )
+
 
 def is_number(num):
     try:
@@ -105,3 +137,56 @@ def async_export_data(data: list, filename: str, dcid: int, export_field_label: 
         instance.task_status = 3
         instance.description = str(e)[:250]
     instance.save()
+
+
+def send_import_message(user_id, title, content):
+    user = Users.objects.filter(pk=user_id).first()
+    if user is None:
+        return
+    # Delay the import to avoid a startup-time circular import:
+    # tasks -> websocketConfig -> message_center -> viewset -> import_export_mixin -> tasks
+    from application.websocketConfig import create_message_push
+
+    create_message_push(
+        title=title,
+        content=content,
+        target_user=[user_id],
+        message={
+            "sender": "system",
+            "contentType": "SYSTEM",
+            "content": content,
+        },
+        request=build_import_request(user=user, path="/api/system/message_center/"),
+    )
+
+
+def try_send_import_message(user_id, title, content):
+    try:
+        send_import_message(user_id=user_id, title=title, content=content)
+    except Exception:
+        logger.exception("Failed to send import notification")
+
+
+@app.task
+def async_import_data(viewset_path: str, user_id: int, file_url: str, request_path: str, import_title: str,
+                      periodic_task_name: str = None):
+    try:
+        row_count = execute_import_by_view(
+            viewset_path=viewset_path,
+            user_id=user_id,
+            file_url=file_url,
+            request_path=request_path,
+        )
+        try_send_import_message(
+            user_id=user_id,
+            title=import_title,
+            content=_("Import completed successfully. %(count)s rows were processed.") % {"count": row_count},
+        )
+        return {"status": "success", "row_count": row_count, "periodic_task_name": periodic_task_name}
+    except Exception as exc:
+        try_send_import_message(
+            user_id=user_id,
+            title=import_title,
+            content=_import_failure_user_message(exc),
+        )
+        raise

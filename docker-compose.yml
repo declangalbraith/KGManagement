@@ -64,24 +64,26 @@ services:
       - butler-service-net
 
   # Celery：需要异步任务时取消注释，并确保 backend 已配置 dvadmin3-celery
-  # butler-service-celery:
-  #   build:
-  #     context: .
-  #     dockerfile: ./docker_env/celery/Dockerfile
-  #   container_name: butler-service-celery
-  #   working_dir: /backend
-  #   depends_on:
-  #     - butler-service-postgres
-  #   environment:
-  #     PYTHONUNBUFFERED: 1
-  #     DATABASE_HOST: butler-service-postgres
-  #     TZ: Asia/Shanghai
-  #   volumes:
-  #     - ./backend:/backend
-  #     - ./logs/log:/var/log
-  #   restart: always
-  #   networks:
-  #     - butler-service-net
+  butler-service-celery:
+    build:
+      context: .
+      dockerfile: ./docker_env/celery/Dockerfile
+    container_name: butler-service-celery
+    working_dir: /backend
+    depends_on:
+      - butler-service-postgres
+      - butler-service-redis
+    environment:
+      PYTHONUNBUFFERED: 1
+      DATABASE_HOST: butler-service-postgres
+      TZ: Asia/Shanghai
+      C_FORCE_ROOT: "true"
+    volumes:
+      - ./backend:/backend
+      - ./logs/log:/var/log
+    restart: always
+    networks:
+      - butler-service-net
 
   butler-service-redis:
     image: redis:6.2.6-alpine

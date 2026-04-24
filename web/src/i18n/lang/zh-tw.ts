@@ -227,6 +227,8 @@ export default {
         cancel: '取 消',
         importSuccess: '導入完成',
         importSuccessMsg: '導入成功',
+        importSubmitted: '導入任務已提交',
+        importSubmittedMsg: '文件已上傳並進入後台處理，請留意右上角消息通知查看結果。',
       },
       noticeBar: {
         content: '公告內容',

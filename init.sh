@@ -10,8 +10,8 @@ ENV_FILE=".env"
 
 usage() {
     echo "用法: $0 backend [--deps] | frontend"
-    echo "  backend [--deps]  部署后端：可选 --deps 表示先构建 Django 镜像（依赖或 Dockerfile 有变更），再 up；"
-    echo "                      Postgres/Redis 就绪后先 docker restart django，再 makemigrations / migrate / init"
+    echo "  backend [--deps]  部署后端：可选 --deps 表示先构建 Django+Celery 镜像（依赖或 Dockerfile 有变更），再 up；"
+    echo "                      Postgres/Redis 就绪后先 restart django，migrate/init 后再 restart celery（Worker 加载新任务）"
     echo "  frontend            删除 web/dist（若存在）后 pnpm install && pnpm run build:local，再构建并启动 butler-service-web"
 }
 
@@ -28,6 +28,10 @@ compose() {
     else
         docker-compose "$@"
     fi
+}
+
+compose_has_service() {
+    compose config --services 2>/dev/null | grep -qx "$1"
 }
 
 ensure_env_secrets() {
@@ -80,7 +84,8 @@ ensure_runtime_dirs() {
     mkdir -p docker_env/postgres/pgdata logs/log docker_env/redis/data
 }
 
-# compose up 后重启 Django，使进程加载挂载目录中的最新代码，再执行 migrate/init（避免长驻 worker 仍持旧逻辑）
+# compose up 后重启 Django，使进程加载挂载目录中的最新代码，再执行 migrate/init。
+# Celery worker 同样是长驻进程：若不随部署重启，队列里新任务名（如 async_import_data）会在 consumer 侧 KeyError。
 wait_django_exec_ready() {
     local i=1
     while [ $i -le 30 ]; do
@@ -103,15 +108,24 @@ cmd_backend() {
     apply_backend_env
 
     if [ "$with_deps" = "true" ]; then
-        echo "正在构建 Django 镜像（requirements.txt / docker_env/django/Dockerfile 有变更时请先使用 --deps）..."
-        compose build butler-service-django || {
-            echo "docker compose build butler-service-django 执行失败！"
-            exit 1
-        }
+        echo "正在构建后端镜像（requirements.txt 或 Dockerfile 有变更时请先使用 --deps）..."
+        if compose_has_service butler-service-celery; then
+            compose build butler-service-django butler-service-celery || {
+                echo "docker compose build（django/celery）执行失败！"
+                exit 1
+            }
+        else
+            compose build butler-service-django || {
+                echo "docker compose build butler-service-django 执行失败！"
+                exit 1
+            }
+        fi
     fi
 
-    echo "正在启动后端容器（PostgreSQL、Redis、Django）..."
-    compose up -d butler-service-postgres butler-service-redis butler-service-django || {
+    echo "正在启动后端容器（PostgreSQL、Redis、Django；若 compose 含 Celery 则一并启动）..."
+    _backend_up=(butler-service-postgres butler-service-redis butler-service-django)
+    compose_has_service butler-service-celery && _backend_up+=(butler-service-celery)
+    compose up -d "${_backend_up[@]}" || {
         echo "docker compose up -d（后端服务）执行失败！"
         exit 1
     }
@@ -131,6 +145,10 @@ cmd_backend() {
             docker exec butler-service-django python3 manage.py migrate
             echo "正在初始化数据..."
             docker exec butler-service-django python3 manage.py init
+            if docker ps -a --format '{{.Names}}' | grep -qx 'butler-service-celery'; then
+                echo "正在重启 butler-service-celery，使 Worker 重新加载任务模块（与挂载代码一致）..."
+                docker restart butler-service-celery
+            fi
             echo "后端部署完成（local_prod）。"
             echo "API：http://<服务器IP>:8004"
             echo "请在本仓库根目录执行: ./init.sh frontend 以构建 dist 并部署 Nginx 前端。"

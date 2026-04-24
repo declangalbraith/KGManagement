@@ -68,6 +68,31 @@ msgstr "Data export task"
 msgid "Import task has been created. Please go to 'Download Center' to wait for download"
 msgstr "Import task has been created. Please go to 'Download Center' to wait for download"
 
+#: dvadmin/system/tasks.py
+msgid ""
+"The import could not be completed. Some data in the file is invalid. "
+"Please check your entries against the template, then try again."
+msgstr ""
+"The import could not be completed. Some data in the file is invalid. "
+"Please check your entries against the template, then try again."
+
+msgid ""
+"The import could not be completed. The file could not be read. "
+"Please confirm the file is a valid Excel file and upload it again."
+msgstr ""
+"The import could not be completed. The file could not be read. "
+"Please confirm the file is a valid Excel file and upload it again."
+
+msgid ""
+"The import could not be completed. Please verify the file format and your data, then try again. "
+"If the issue persists, contact the administrator."
+msgstr ""
+"The import could not be completed. Please verify the file format and your data, then try again. "
+"If the issue persists, contact the administrator."
+
+msgid "Import completed successfully. %(count)s rows were processed."
+msgstr "Import completed successfully. %(count)s rows were processed."
+
 msgid "Create successful"
 msgstr "Create successful"
 

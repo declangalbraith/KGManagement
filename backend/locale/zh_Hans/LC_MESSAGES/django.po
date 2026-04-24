@@ -73,6 +73,28 @@ msgstr "数据导出任务"
 msgid "Import task has been created. Please go to 'Download Center' to wait for download"
 msgstr "导入任务已创建,请前往'下载中心'等待下载"
 
+#: dvadmin/system/tasks.py
+msgid ""
+"The import could not be completed. Some data in the file is invalid. "
+"Please check your entries against the template, then try again."
+msgstr ""
+"本次导入未能完成。文件中部分数据不符合要求。请对照模板检查填写内容后重试。"
+
+msgid ""
+"The import could not be completed. The file could not be read. "
+"Please confirm the file is a valid Excel file and upload it again."
+msgstr ""
+"本次导入未能完成。无法读取该文件。请确认使用有效的 Excel 文件后重新上传。"
+
+msgid ""
+"The import could not be completed. Please verify the file format and your data, then try again. "
+"If the issue persists, contact the administrator."
+msgstr ""
+"本次导入未能完成。请核对文件格式与数据内容后重试。若问题仍存在，请联系管理员。"
+
+msgid "Import completed successfully. %(count)s rows were processed."
+msgstr "导入已完成，共处理 %(count)s 行。"
+
 #: dvadmin/utils/viewset.py
 msgid "Create successful"
 msgstr "新增成功"

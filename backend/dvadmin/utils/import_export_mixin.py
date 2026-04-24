@@ -3,6 +3,7 @@ import datetime
 from urllib.parse import quote
 
 from django.db import transaction
+from django.utils.encoding import force_str
 from django.http import HttpResponse
 from django.utils.translation import gettext_lazy as _
 from openpyxl import Workbook
@@ -12,10 +13,9 @@ from openpyxl.worksheet.table import Table, TableStyleInfo
 from rest_framework.decorators import action
 from rest_framework.request import Request
 
-from dvadmin.utils.import_export import import_to_data
 from dvadmin.utils.json_response import DetailResponse, SuccessResponse
 from dvadmin.utils.request_util import get_verbose_name
-from dvadmin.system.tasks import async_export_data
+from dvadmin.system.tasks import async_export_data, async_import_data
 from dvadmin.system.models import DownloadCenter
 
 
@@ -91,32 +91,32 @@ class ImportSerializerMixin:
             row = get_column_letter(len(self.import_field_dict) + 1)
             column = 10
             header_data = [
-                _("No."),
+                force_str(_("No.")),
             ]
             validation_data_dict = {}
             for index, ele in enumerate(self.import_field_dict.values()):
                 if isinstance(ele, dict):
-                    header_data.append(ele.get("title"))
+                    title = force_str(ele.get("title"))
+                    header_data.append(title)
                     choices = ele.get("choices", {})
                     if choices.get("data"):
-                        data_list = []
-                        data_list.extend(choices.get("data").keys())
-                        validation_data_dict[ele.get("title")] = data_list
+                        data_list = [force_str(item) for item in choices.get("data").keys()]
+                        validation_data_dict[title] = data_list
                     elif choices.get("queryset") and choices.get("values_name"):
                         data_list = choices.get("queryset").values_list(choices.get("values_name"), flat=True)
-                        validation_data_dict[ele.get("title")] = list(data_list)
+                        validation_data_dict[title] = [force_str(item) for item in data_list]
                     else:
                         continue
                     column_letter = get_column_letter(len(validation_data_dict))
                     dv = DataValidation(
                         type="list",
-                        formula1=f"{quote_sheetname('data')}!${column_letter}$2:${column_letter}${len(validation_data_dict[ele.get('title')]) + 1}",
+                        formula1=f"{quote_sheetname('data')}!${column_letter}$2:${column_letter}${len(validation_data_dict[title]) + 1}",
                         allow_blank=True,
                     )
                     ws.add_data_validation(dv)
                     dv.add(f"{get_column_letter(index + 2)}2:{get_column_letter(index + 2)}1048576")
                 else:
-                    header_data.append(ele)
+                    header_data.append(force_str(ele))
             # 添加数据列
             ws1.append(list(validation_data_dict.keys()))
             for index, validation_data in enumerate(validation_data_dict.values()):
@@ -141,24 +141,21 @@ class ImportSerializerMixin:
             wb.save(response)
             return response
         else:
-            # 从excel中组织对应的数据结构，然后使用序列化器保存
+            assert self.import_serializer_class, "'%s' " % self.__class__.__name__ + _("Please configure the corresponding import serializer.")
             queryset = self.filter_queryset(self.get_queryset())
-            # 获取多对多字段
-            m2m_fields = [
-                ele.name
-                for ele in queryset.model._meta.get_fields()
-                if hasattr(ele, "many_to_many") and ele.many_to_many == True
-            ]
-            import_field_dict = {'id': _("Update primary key (do not modify)"), **self.import_field_dict}
-            data = import_to_data(request.data.get("url"), import_field_dict, m2m_fields)
-            for ele in data:
-                filter_dic = {'id':ele.get('id')}
-                instance = filter_dic and queryset.filter(**filter_dic).first()
-                # print(156,ele)
-                serializer = self.import_serializer_class(instance, data=ele, request=request)
-                serializer.is_valid(raise_exception=True)
-                serializer.save()
-            return DetailResponse(msg=_("Import successful"))
+            import_title = str(f"{get_verbose_name(queryset)}{_('Import task')}")
+            task_result = async_import_data.delay(
+                viewset_path=f"{self.__class__.__module__}.{self.__class__.__name__}",
+                user_id=request.user.id,
+                file_url=request.data.get("url"),
+                request_path=request.path,
+                import_title=import_title,
+                periodic_task_name=import_title,
+            )
+            return SuccessResponse(
+                msg=_("Import task has been created. Please check the message center later."),
+                data={"task_id": task_result.id},
+            )
 
     @action(methods=['get'],detail=False)
     def update_template(self,request):

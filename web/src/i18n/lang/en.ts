@@ -226,6 +226,8 @@ export default {
         cancel: 'Cancel',
         importSuccess: 'Import Complete',
         importSuccessMsg: 'Import successful',
+        importSubmitted: 'Import task submitted',
+        importSubmittedMsg: 'The file has been queued for background processing. Please check the notification in the top-right corner for the result.',
       },
       noticeBar: {
         content: 'Notice content',

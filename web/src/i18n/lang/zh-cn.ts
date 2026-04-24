@@ -230,6 +230,8 @@ export default {
                 cancel: '取 消',
                 importSuccess: '导入完成',
                 importSuccessMsg: '导入成功',
+                importSubmitted: '导入任务已提交',
+                importSubmittedMsg: '文件已上传并进入后台处理，请留意右上角消息通知查看结果。',
             },
             noticeBar: {
                 content: '公告内容',

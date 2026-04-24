@@ -32,7 +32,10 @@ class Command(BaseCommand):
         if isinstance(options.get("n"), list) or isinstance(options.get("N"), list):
             reset = False
         assign_apps = options.get("app") or options.get("A") or []
+        skip_apps = getattr(settings, "INIT_SKIP_FIXTURE_APPS", [])
         for app in settings.INSTALLED_APPS:
+            if app in skip_apps:
+                continue
             if assign_apps and app not in assign_apps:
                 continue
             try:

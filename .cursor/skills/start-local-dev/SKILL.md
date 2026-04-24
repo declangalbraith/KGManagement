@@ -70,7 +70,7 @@ cd web && pnpm install
 
 ```bash
 cd backend
-./venv/bin/uvicorn application.asgi:application --host 0.0.0.0 --port 800![1776317606722](image/SKILL/1776317606722.png)![1776317628623](image/SKILL/1776317628623.png)0
+./venv/bin/uvicorn application.asgi:application --host 0.0.0.0 --port 8000
 ```
 
 ### Start frontend

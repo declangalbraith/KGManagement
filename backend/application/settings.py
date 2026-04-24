@@ -91,6 +91,7 @@ TEMPLATES = [
             "context_processors": [
                 "django.template.context_processors.debug",
                 "django.template.context_processors.request",
+                "django.template.context_processors.csrf",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
             ],
@@ -209,19 +210,15 @@ CORS_ALLOW_CREDENTIALS = True  # 指明在跨域访问中，后端是否支持�
 # ********************* channels配置 ******************* #
 # ===================================================== #
 ASGI_APPLICATION = 'application.asgi.application'
+# Celery 与 ASGI 分进程运行时用 Redis 作 channel layer，InMemory 无法跨进程推送
 CHANNEL_LAYERS = {
     "default": {
-        "BACKEND": "channels.layers.InMemoryChannelLayer"
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [REDIS_URL],
+        },
     }
 }
-# CHANNEL_LAYERS = {
-#     'default': {
-#         'BACKEND': 'channels_redis.core.RedisChannelLayer',
-#         'CONFIG': {
-#             "hosts": [('127.0.0.1', 6379)], #需修改
-#         },
-#     },
-# }
 
 
 # ================================================= #
@@ -360,8 +357,8 @@ SWAGGER_SETTINGS = {
     # 基础样式
     "SECURITY_DEFINITIONS": {"basic": {"type": "basic"}},
     # 如果需要登录才能够查看接口文档, 登录的链接使用restframework自带的.
-    "LOGIN_URL": "apiLogin/",
-    # 'LOGIN_URL': 'rest_framework:login',
+    # Swagger "Django Login" 应跳转到 DRF 自带登录页（GET 表单）
+    "LOGIN_URL": "rest_framework:login",
     "LOGOUT_URL": "rest_framework:logout",
     # 'DOC_EXPANSION': None,
     # 'SHOW_REQUEST_HEADERS':True,
@@ -441,6 +438,9 @@ SHARED_APPS = []
 # 例如:
 # from dvadmin_upgrade_center.settings import *    # 升级中心
 from dvadmin3_celery.settings import *            # celery 异步任务
+# 跳过这些 app 的 fixtures.initialize：dvadmin3_celery 仅会写入插件自带菜单，与 dvadmin/system/fixtures/init_menu.json
+# 中本地 celery 页面（views/celery）重复；保留 INIT_SKIP_FIXTURE_APPS 即可只使用本地菜单。
+INIT_SKIP_FIXTURE_APPS = ["dvadmin3_celery"]
 # from dvadmin_third.settings import *            # 第三方用户管理
 # from dvadmin_ak_sk.settings import *            # 秘钥管理管理
 # from dvadmin_tenants.settings import *            # 租户管理

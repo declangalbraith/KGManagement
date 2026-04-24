@@ -122,10 +122,12 @@ class MenuButtonViewSet(CustomModelViewSet):
         if to_create:
             serializer = self.get_serializer(data=to_create, many=True)
             serializer.is_valid(raise_exception=True)
-            MenuButton.objects.bulk_create(
-                [MenuButton(**item) for item in to_create],
-                ignore_conflicts=True
-            )
+            instances = []
+            for item in to_create:
+                kw = {k: v for k, v in item.items() if k != 'menu'}
+                kw['menu_id'] = item['menu']
+                instances.append(MenuButton(**kw))
+            MenuButton.objects.bulk_create(instances, ignore_conflicts=True)
 
         return SuccessResponse(data={'created': len(to_create), 'skipped': skipped}, msg=f"批量创建成功 {len(to_create)} 项，跳过 {skipped} 项（已存在）")
 
