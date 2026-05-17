@@ -61,8 +61,7 @@ INSTALLED_APPS = [
     "channels",
     "dvadmin.system",
     "dvadmin.test_app",
-    "DeviceManagement.apps.DeviceManagementConfig",
-    "EngineerManagement.apps.EngineerManagementConfig",
+    "kag",
 ]
 
 MIDDLEWARE = [
@@ -422,6 +421,52 @@ TABLE_PREFIX = locals().get('TABLE_PREFIX', "")
 SYSTEM_CONFIG = {}
 # 字典配置
 DICTIONARY_CONFIG = {}
+
+# ================================================= #
+# ******************** KAG 配置 ******************* #
+# ================================================= #
+KAG_PROJECT_ROOT = locals().get("KAG_PROJECT_ROOT", os.path.join(BASE_DIR, "kag", "kag_projects"))
+
+# LLM 配置
+KAG_LLM_OPENIE_BASE_URL = locals().get("KAG_LLM_OPENIE_BASE_URL", "https://api.siliconflow.cn/v1")
+KAG_LLM_OPENIE_API_KEY = locals().get("KAG_LLM_OPENIE_API_KEY", "")
+KAG_LLM_OPENIE_MODEL = locals().get("KAG_LLM_OPENIE_MODEL", "Qwen/Qwen2.5-72B-Instruct")
+KAG_LLM_CHAT_BASE_URL = locals().get("KAG_LLM_CHAT_BASE_URL", "https://api.siliconflow.cn/v1")
+KAG_LLM_CHAT_API_KEY = locals().get("KAG_LLM_CHAT_API_KEY", "")
+KAG_LLM_CHAT_MODEL = locals().get("KAG_LLM_CHAT_MODEL", "deepseek-ai/DeepSeek-V3.2")
+
+# Embedding 配置
+KAG_EMBEDDING_BASE_URL = locals().get("KAG_EMBEDDING_BASE_URL", "https://api.siliconflow.cn/v1")
+KAG_EMBEDDING_API_KEY = locals().get("KAG_EMBEDDING_API_KEY", "")
+KAG_EMBEDDING_MODEL = locals().get("KAG_EMBEDDING_MODEL", "BAAI/bge-m3")
+KAG_EMBEDDING_DIMENSIONS = locals().get("KAG_EMBEDDING_DIMENSIONS", 1024)
+
+# Neo4j 配置
+KAG_NEO4J_URI = locals().get("KAG_NEO4J_URI", "bolt://localhost:7687")
+KAG_NEO4J_USER = locals().get("KAG_NEO4J_USER", "neo4j")
+KAG_NEO4J_PASSWORD = locals().get("KAG_NEO4J_PASSWORD", "neo4j@openspg")
+KAG_NEO4J_DATABASE = locals().get("KAG_NEO4J_DATABASE", "kgtestv2")
+
+# OpenSPG 配置
+KAG_OPENSPG_HOST = locals().get("KAG_OPENSPG_HOST", "http://localhost:18887")
+
+# 兼容 dict 格式（供 management commands 读取）
+KAG_EMBEDDING_CONFIG = {
+    "base_url": KAG_EMBEDDING_BASE_URL,
+    "api_key": KAG_EMBEDDING_API_KEY,
+    "model": KAG_EMBEDDING_MODEL,
+    "dimensions": KAG_EMBEDDING_DIMENSIONS,
+}
+KAG_LLM_OPENIE_CONFIG = {
+    "base_url": KAG_LLM_OPENIE_BASE_URL,
+    "api_key": KAG_LLM_OPENIE_API_KEY,
+    "model": KAG_LLM_OPENIE_MODEL,
+}
+KAG_LLM_CHAT_CONFIG = {
+    "base_url": KAG_LLM_CHAT_BASE_URL,
+    "api_key": KAG_LLM_CHAT_API_KEY,
+    "model": KAG_LLM_CHAT_MODEL,
+}
 
 # ================================================= #
 # ******************** 插件配置 ******************** #
