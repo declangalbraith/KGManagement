@@ -21,7 +21,7 @@ from kag.interface import ExtractorABC, PromptABC
 from kag.builder.model.chunk import Chunk
 from kag.builder.model.sub_graph import SubGraph
 from kag.interface.common.model.chunk import ChunkTypeEnum
-from knext.schema.client import CHUNK_TYPE, TABLE_TYPE
+from kag.common.compat.knext import CHUNK_TYPE, TABLE_TYPE
 from knext.common.base.runnable import Input, Output
 
 logger = logging.getLogger(__name__)

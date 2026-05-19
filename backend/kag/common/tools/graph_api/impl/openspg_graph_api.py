@@ -4,7 +4,7 @@ from typing import List, Dict
 
 from kag.common.conf import KAGConstants, KAGConfigAccessor
 
-from knext.graph.client import GraphClient
+from kag.common.compat.knext import GraphClient
 from knext.reasoner.rest.models.reason_task import ReasonTask
 
 from kag.interface.solver.base_model import SPOEntity, TypeInfo

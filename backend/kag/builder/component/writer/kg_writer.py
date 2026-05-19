@@ -14,7 +14,7 @@ import logging
 import asyncio
 from enum import Enum
 from typing import Type, Dict, List, Union
-from knext.graph.client import GraphClient
+from kag.common.compat.knext import GraphClient
 from kag.builder.model.sub_graph import SubGraph
 from kag.interface import SinkWriterABC
 from kag.interface.builder.base import BuilderComponentData

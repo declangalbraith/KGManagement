@@ -60,3 +60,4 @@ scikit-learn
 deprecated
 schedule
 pytest==7.4.2
+openspg-knext

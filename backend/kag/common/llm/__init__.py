@@ -10,15 +10,15 @@
 # is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
 # or implied.
 
-
-from kag.common.llm.openai_client import OpenAIClient
-from kag.common.llm.ollama_client import OllamaClient
 from kag.common.llm.llm_config_checker import LLMConfigChecker
 from kag.common.llm.mock_llm import MockLLMClient
+from kag.common.llm.openai_client import OpenAIClient
 
-__all__ = [
-    "OpenAIClient",
-    "OllamaClient",
-    "MockLLMClient",
-    "LLMConfigChecker",
-]
+__all__ = ["OpenAIClient", "MockLLMClient", "LLMConfigChecker"]
+
+try:
+    from kag.common.llm.ollama_client import OllamaClient
+except ModuleNotFoundError:
+    OllamaClient = None
+else:
+    __all__.append("OllamaClient")

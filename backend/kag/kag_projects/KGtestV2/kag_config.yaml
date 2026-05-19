@@ -34,6 +34,15 @@ project:
   namespace: KGtestV2
   id: '4'
 
+compatibility:
+  fail_fast: false
+  expected_runtime:
+    openspg_kag_version: "0.8.0"
+  required_knext_capabilities:
+    - index_type
+    - graph_client
+    - task_stream_request
+
 #------------ kag-builder ----------------#
 kag_builder_pipeline:
   chain:
@@ -175,4 +184,3 @@ kag_solver_pipeline:
     generated_prompt:
       type: kgtest_concise_generator 
     enable_ref: true
-

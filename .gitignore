@@ -1,6 +1,7 @@
 /backend/venv
 /backend/.idea
 .idea
+.claude/settings.local.json
 
 .history/
 .vscode/
@@ -17,3 +18,11 @@ docs/superpowers/
 
 # Docker Postgres 数据目录（仅忽略内容，目录由 init.sh mkdir 创建）
 docker_env/postgres/pgdata/
+
+# Python cache / runtime artifacts
+__pycache__/
+*.pyc
+
+# KAG runtime artifacts
+backend/ckpt/
+backend/kag/kag_projects/**/builder/prompt/_llm_dump/

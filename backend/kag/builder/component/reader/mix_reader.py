@@ -16,10 +16,14 @@ from typing import List
 from kag.interface import ReaderABC
 from knext.common.base.runnable import Input, Output
 from kag.builder.component.reader.txt_reader import TXTReader
-from kag.builder.component.reader.pdf_reader import PDFReader
 from kag.builder.component.reader.docx_reader import DocxReader
 from kag.builder.component.reader.markdown_reader import MarkDownReader
 from kag.builder.component.reader.dict_reader import DictReader
+
+try:
+    from kag.builder.component.reader.pdf_reader import PDFReader
+except ModuleNotFoundError:
+    PDFReader = None
 
 
 @ReaderABC.register("mix", as_default=True)
@@ -96,5 +100,9 @@ class MixReader(ReaderABC):
 
         reader = self.reader_map[reader_type]
         if reader is None:
+            if reader_type == "pdf":
+                raise KeyError(
+                    "pdf reader not correctly configured. Install PDF dependencies such as PyPDF2 before reading PDF files."
+                )
             raise KeyError(f"{reader_type} reader not correctly configured.")
         return reader._invoke(input)

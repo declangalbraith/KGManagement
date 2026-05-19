@@ -8,7 +8,7 @@ from kag.common.config import get_default_chat_llm_config
 from kag.interface import ExtractorABC, LLMClient, PromptABC
 from kag.interface.common.model.chunk import ChunkTypeEnum
 from knext.common.base.runnable import Input, Output
-from knext.schema.client import CHUNK_TYPE, TABLE_TYPE
+from kag.common.compat.knext import CHUNK_TYPE, TABLE_TYPE
 
 logger = logging.getLogger(__name__)
 

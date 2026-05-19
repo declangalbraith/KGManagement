@@ -15,14 +15,52 @@ from kag.interface.solver.model.one_hop_graph import (
 from kag.common.utils import generate_random_string
 from knext.common.rest import ApiClient, Configuration
 from knext.reasoner import ReasonerApi
-from knext.reasoner.rest.models import TaskStreamRequest
-from knext.reasoner.rest.models.data_edge import DataEdge
-from knext.reasoner.rest.models.data_node import DataNode
-from knext.reasoner.rest.models.metrics import Metrics
-from knext.reasoner.rest.models.ref_doc import RefDoc
-from knext.reasoner.rest.models.ref_doc_set import RefDocSet
-from knext.reasoner.rest.models.stream_data import StreamData
-from knext.reasoner.rest.models.sub_graph import SubGraph
+
+REPORTING_SUPPORTED = True
+
+try:
+    from knext.reasoner.rest.models import TaskStreamRequest
+    from knext.reasoner.rest.models.data_edge import DataEdge
+    from knext.reasoner.rest.models.data_node import DataNode
+    from knext.reasoner.rest.models.metrics import Metrics
+    from knext.reasoner.rest.models.ref_doc import RefDoc
+    from knext.reasoner.rest.models.ref_doc_set import RefDocSet
+    from knext.reasoner.rest.models.stream_data import StreamData
+    from knext.reasoner.rest.models.sub_graph import SubGraph
+except ImportError:
+    REPORTING_SUPPORTED = False
+
+    class _CompatModel:
+        def __init__(self, **kwargs):
+            for key, value in kwargs.items():
+                setattr(self, key, value)
+
+        def to_dict(self):
+            return dict(self.__dict__)
+
+    class TaskStreamRequest(_CompatModel):
+        pass
+
+    class DataEdge(_CompatModel):
+        pass
+
+    class DataNode(_CompatModel):
+        pass
+
+    class Metrics(_CompatModel):
+        pass
+
+    class RefDoc(_CompatModel):
+        pass
+
+    class RefDocSet(_CompatModel):
+        pass
+
+    class StreamData(_CompatModel):
+        pass
+
+    class SubGraph(_CompatModel):
+        pass
 
 logger = logging.getLogger()
 
@@ -64,6 +102,8 @@ def merge_ref_doc_set(left: RefDocSet, right: RefDocSet):
 
 
 def _convert_spo_to_graph(graph_id, spo_retrieved_or_entities, kag_project_config):
+    if not REPORTING_SUPPORTED:
+        return None
     nodes = {}
     edges = []
 
@@ -445,9 +485,11 @@ Rewritten question:
             and (isinstance(datas[0], RelationData) or isinstance(datas[0], EntityData))
         ):
             graph_id = f"graph_{generate_random_string(3)}"
-            graph_list.append(
-                _convert_spo_to_graph(graph_id, datas, self.kag_project_config)
+            sub_graph = _convert_spo_to_graph(
+                graph_id, datas, self.kag_project_config
             )
+            if sub_graph is not None:
+                graph_list.append(sub_graph)
             tpl = self.get_tag_template("Graph Show")
             datas = f"""<graph id={graph_id}></graph>"""
         if tpl:
@@ -530,7 +572,11 @@ Rewritten question:
                     }
 
     def do_report(self):
-        if not self.client:
+        if (
+            not self.client
+            or not REPORTING_SUPPORTED
+            or not hasattr(self.client, "reasoner_dialog_report_completions_post")
+        ):
             return
         content, status_enum, metrics = self.generate_report_data()
 

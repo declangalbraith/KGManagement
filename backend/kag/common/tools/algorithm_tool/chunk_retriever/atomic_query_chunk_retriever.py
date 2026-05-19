@@ -29,7 +29,7 @@ from kag.interface.solver.model.schema_utils import SchemaUtils
 from kag.common.config import LogicFormConfiguration
 from kag.common.tools.search_api.search_api_abc import SearchApiABC
 from kag.common.tools.graph_api.graph_api_abc import GraphApiABC
-from knext.schema.client import CHUNK_TYPE, TABLE_TYPE
+from kag.common.compat.knext import CHUNK_TYPE, TABLE_TYPE
 
 logger = logging.getLogger()
 chunk_cached_by_query_map = knext.common.cache.LinkCache(maxsize=100, ttl=300)

@@ -22,7 +22,6 @@ from kag.solver.planner.kag_iterative_planner import KAGIterativePlanner
 from kag.solver.planner.kag_model_planner import KAGModelPlanner
 from kag.solver.planner.kag_static_planner import KAGStaticPlanner
 from kag.solver.planner.lf_kag_static_planner import KAGLFStaticPlanner
-from kag.solver.planner.mcp_planner import MCPPlanner
 from kag.solver.prompt import (
     DeduceChoice,
     DeduceEntail,
@@ -43,7 +42,6 @@ from kag.solver.prompt.query_rewrite_prompt import QueryRewritePrompt
 
 
 from kag.solver.executor.math.py_based_math_executor import PyBasedMathExecutor
-from kag.solver.executor.mcp.mcp_executor import McpExecutor
 from kag.solver.executor.finish_executor import FinishExecutor
 from kag.solver.executor.mock_executors import (
     MockRetrieverExecutor,
@@ -61,7 +59,6 @@ __all__ = [
     "KAGIterativePlanner",
     "KAGStaticPlanner",
     "KAGModelPlanner",
-    "MCPPlanner",
     "DefaultIterativePlanningPrompt",
     "DefaultStaticPlanningPrompt",
     "DefaultRewriteSubTaskQueryPrompt",
@@ -75,7 +72,6 @@ __all__ = [
     "DeduceJudge",
     "DeduceMutiChoice",
     "PyBasedMathExecutor",
-    "McpExecutor",
     "FinishExecutor",
     "MockRetrieverExecutor",
     "KAGModelHybridRetrievalExecutor",
@@ -105,3 +101,12 @@ from kag.common.tools.algorithm_tool.self_cognition.self_cogn_tools import (
 from kag.solver.reporter.open_spg_kag_model_reporter import KAGOpenSPGReporter
 from kag.solver.reporter.open_spg_reporter import OpenSPGReporter
 from kag.solver.reporter.trace_log_reporter import TraceLogReporter
+
+try:
+    from kag.solver.planner.mcp_planner import MCPPlanner
+    from kag.solver.executor.mcp.mcp_executor import McpExecutor
+except ModuleNotFoundError:
+    MCPPlanner = None
+    McpExecutor = None
+else:
+    __all__.extend(["MCPPlanner", "McpExecutor"])

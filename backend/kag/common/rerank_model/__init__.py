@@ -9,9 +9,13 @@
 # Unless required by applicable law or agreed to in writing, software distributed under the License
 # is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
 # or implied.
-
-from kag.common.rerank_model.local_bge_rerank_model import LocalBGERerankModel
 from kag.common.rerank_model.maas_rerank_model import MAASRerankModel
 
+__all__ = ["MAASRerankModel"]
 
-__all__ = ["LocalBGERerankModel", "MAASRerankModel"]
+try:
+    from kag.common.rerank_model.local_bge_rerank_model import LocalBGERerankModel
+except ModuleNotFoundError:
+    LocalBGERerankModel = None
+else:
+    __all__.append("LocalBGERerankModel")
