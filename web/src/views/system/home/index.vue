@@ -12,8 +12,8 @@
 		</div>
 
 		<el-row :gutter="20" class="kg-dashboard__stats">
-			<el-col v-for="card in statCards" :key="card.key" :xs="24" :sm="12" :lg="6">
-				<div class="kg-stat-card" :class="`kg-stat-card--${card.tone}`" @click="card.onClick">
+			<el-col v-for="card in statCards" :key="card.key" :xs="24" :sm="12" :md="6">
+				<div class="kg-stat-card kg-glass" :class="`kg-stat-card--${card.tone}`" @click="card.onClick">
 					<div class="kg-stat-card__top">
 						<span class="kg-stat-card__label">{{ card.label }}</span>
 						<div class="kg-stat-card__icon">
@@ -31,14 +31,16 @@
 			</el-col>
 		</el-row>
 
-		<el-row :gutter="20" class="kg-dashboard__main">
-			<!-- 热点动态 -->
-			<el-col :xs="24" :xl="10" :lg="24">
-				<div class="kg-panel">
+		<div class="kg-dashboard__main">
+			<!-- 热点动态：React xl:col-span-5 -->
+			<div class="kg-dashboard__col kg-dashboard__col--hot">
+				<div class="kg-panel kg-glass">
 					<div class="kg-panel__head">
 						<div>
 							<h3 class="kg-panel__title">
-								<el-icon class="kg-panel__flame"><WarningFilled /></el-icon>
+								<svg class="kg-panel__flame" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+									<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" />
+								</svg>
 								{{ t('message.pages.home.hotIssuesFeed') }}
 							</h3>
 							<p class="kg-panel__desc">{{ t('message.pages.home.hotIssuesDesc') }}</p>
@@ -60,9 +62,9 @@
 											<div class="kg-hot-item__time">{{ issue.time }}</div>
 										</div>
 										<div class="kg-hot-item__badges">
-											<el-tag :type="issue.heat > 90 ? 'danger' : 'warning'" effect="plain" size="small">
+											<span class="kg-heat-badge" :class="issue.heat > 90 ? 'is-high' : 'is-mid'">
 												🔥 热度 {{ issue.heat }}%
-											</el-tag>
+											</span>
 											<el-button
 												v-if="isAdmin"
 												link
@@ -102,15 +104,15 @@
 						<el-empty v-else :description="t('message.pages.home.noHotIssues')" :image-size="64" />
 					</div>
 				</div>
-			</el-col>
+			</div>
 
-			<!-- 待处理任务 -->
-			<el-col :xs="24" :xl="9" :lg="12">
-				<div class="kg-panel">
+			<!-- 待处理任务：React xl:col-span-4 -->
+			<div class="kg-dashboard__col kg-dashboard__col--tasks">
+				<div class="kg-panel kg-glass">
 					<div class="kg-panel__head kg-panel__head--row">
 						<div>
 							<h3 class="kg-panel__title">{{ t('message.pages.home.tasksToProcess') }}</h3>
-							<p class="kg-panel__desc">{{ t('message.pages.home.tasksDescription') }}</p>
+							<p class="kg-panel__desc">{{ tasksDescText }}</p>
 						</div>
 						<el-button link type="primary" @click="router.push('/tasks')">
 							{{ t('message.pages.home.viewAll') }}
@@ -142,11 +144,11 @@
 						</div>
 					</div>
 				</div>
-			</el-col>
+			</div>
 
-			<!-- 公告通知 -->
-			<el-col :xs="24" :xl="5" :lg="12">
-				<div class="kg-panel">
+			<!-- 公告通知：React xl:col-span-3 -->
+			<div class="kg-dashboard__col kg-dashboard__col--notice">
+				<div class="kg-panel kg-glass">
 					<div class="kg-panel__head">
 						<h3 class="kg-panel__title">{{ t('message.pages.home.systemNotices') }}</h3>
 						<p class="kg-panel__desc">{{ t('message.pages.home.noticesDescription') }}</p>
@@ -181,8 +183,8 @@
 						</div>
 					</div>
 				</div>
-			</el-col>
-		</el-row>
+			</div>
+		</div>
 	</div>
 </template>
 
@@ -213,8 +215,14 @@ const { userInfos } = storeToRefs(useUserInfo());
 const hotFeed = ref([...initialHotFeed]);
 const isAdmin = true;
 
+const pendingTaskCount = 12;
+
 const subtitleText = computed(() =>
 	t('message.pages.home.subtitle', { name: userInfos.value.name || '张三' })
+);
+
+const tasksDescText = computed(() =>
+	t('message.pages.home.tasksDescription', { count: pendingTaskCount })
 );
 
 const statCards = [
@@ -276,10 +284,20 @@ function processTask(id: string) {
 </script>
 
 <style scoped lang="scss">
+/* 对齐 React Dashboard：gap-8、glass-panel、xl 三栏 5:4:3 */
+.kg-glass {
+	background: rgba(255, 255, 255, 0.92);
+	border: 1px solid rgba(0, 0, 0, 0.06);
+	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
 .kg-dashboard {
 	display: flex;
 	flex-direction: column;
-	gap: 28px;
+	gap: 32px;
+	max-width: 1280px;
+	margin: 0 auto;
+	width: 100%;
 }
 
 .kg-dashboard__head {
@@ -308,16 +326,46 @@ function processTask(id: string) {
 	--el-button-border-color: #1a1a1a;
 	--el-button-hover-bg-color: #333;
 	--el-button-hover-border-color: #333;
-	border-radius: 8px;
-	padding: 10px 18px;
+	border-radius: 6px;
+	padding: 10px 20px;
 	font-weight: 500;
+	box-shadow: 0 4px 6px rgba(0, 0, 0, 0.08);
+}
+
+.kg-dashboard__stats {
+	margin-bottom: 0 !important;
+}
+
+/* 三栏：≥1200px 与 React xl:grid-cols-12 (5+4+3) 一致 */
+.kg-dashboard__main {
+	display: grid;
+	gap: 24px;
+	grid-template-columns: 1fr;
+	align-items: stretch;
+}
+
+@media (min-width: 1200px) {
+	.kg-dashboard__main {
+		grid-template-columns: minmax(0, 5fr) minmax(0, 4fr) minmax(0, 3fr);
+	}
+}
+
+@media (min-width: 768px) and (max-width: 1199px) {
+	.kg-dashboard__main {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+	.kg-dashboard__col--hot {
+		grid-column: 1 / -1;
+	}
+}
+
+.kg-dashboard__col {
+	min-width: 0;
 }
 
 .kg-stat-card {
-	background: var(--el-bg-color);
-	border: 1px solid var(--el-border-color-lighter);
-	border-radius: 10px;
-	padding: 18px 20px;
+	border-radius: 8px;
+	padding: 20px 24px 24px;
 	cursor: pointer;
 	transition: box-shadow 0.2s, transform 0.2s;
 	border-top-width: 4px;
@@ -403,20 +451,17 @@ function processTask(id: string) {
 }
 
 .kg-panel {
-	background: var(--el-bg-color);
-	border: 1px solid var(--el-border-color-lighter);
-	border-radius: 10px;
+	border-radius: 8px;
 	display: flex;
 	flex-direction: column;
 	height: 600px;
 	overflow: hidden;
-	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
 .kg-panel__head {
-	padding: 16px 20px;
-	border-bottom: 1px solid var(--el-border-color-lighter);
-	background: var(--el-fill-color-lighter);
+	padding: 20px 24px 16px;
+	border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+	background: rgba(0, 0, 0, 0.02);
 	flex-shrink: 0;
 	&--row {
 		display: flex;
@@ -436,7 +481,10 @@ function processTask(id: string) {
 }
 
 .kg-panel__flame {
+	width: 20px;
+	height: 20px;
 	color: #ef4444;
+	flex-shrink: 0;
 }
 
 .kg-panel__desc {
@@ -449,6 +497,34 @@ function processTask(id: string) {
 	flex: 1;
 	overflow-y: auto;
 	min-height: 0;
+	scrollbar-width: thin;
+	&::-webkit-scrollbar {
+		width: 6px;
+	}
+	&::-webkit-scrollbar-thumb {
+		background: rgba(0, 0, 0, 0.12);
+		border-radius: 3px;
+	}
+}
+
+.kg-heat-badge {
+	display: inline-flex;
+	align-items: center;
+	padding: 2px 8px;
+	font-size: 12px;
+	font-weight: 500;
+	border-radius: 4px;
+	border: 1px solid;
+	&.is-high {
+		background: #fef2f2;
+		color: #dc2626;
+		border-color: #fecaca;
+	}
+	&.is-mid {
+		background: #fff7ed;
+		color: #ea580c;
+		border-color: #fed7aa;
+	}
 }
 
 .kg-hot-item {
@@ -527,6 +603,7 @@ function processTask(id: string) {
 	font-weight: 600;
 	cursor: pointer;
 	line-height: 1.4;
+	color: #0f172a;
 	&:hover {
 		color: var(--el-color-primary);
 	}
@@ -553,7 +630,7 @@ function processTask(id: string) {
 .kg-hot-item__bar {
 	flex: 1;
 	height: 6px;
-	background: var(--el-fill-color);
+	background: #e2e8f0;
 	border-radius: 999px;
 	overflow: hidden;
 }
@@ -662,8 +739,14 @@ function processTask(id: string) {
 .kg-task-item__due.is-overdue {
 	color: var(--el-color-danger);
 	font-weight: 600;
-	background: var(--el-color-danger-light-9);
-	padding: 2px 6px;
+	background: rgba(245, 63, 63, 0.08);
+	padding: 2px 8px;
+	border-radius: 4px;
+}
+
+.kg-task-item__meta .kg-task-item__due:not(.is-overdue) {
+	background: #f1f5f9;
+	padding: 2px 8px;
 	border-radius: 4px;
 }
 

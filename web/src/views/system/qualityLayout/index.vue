@@ -37,6 +37,7 @@ import QueenAssistant from './components/QueenAssistant/index.vue';
 .kg-content {
 	flex: 1;
 	overflow: auto;
-	padding: 16px 20px;
+	padding: 24px 28px;
+	background: #f8fafc;
 }
 </style>
