@@ -33,7 +33,7 @@
 		<div class="kg-storyline__input">
 			<el-input
 				v-model="inputValue"
-				placeholder="输入讨论，@Q 召唤 Queen..."
+				placeholder="输入 @Q 呼叫 Queen，或直接输入讨论内容..."
 				@keyup.enter="send"
 			>
 				<template #append>
@@ -82,7 +82,8 @@ watch(
 .kg-storyline {
 	display: flex;
 	flex-direction: column;
-	height: 420px;
+	height: 100%;
+	min-height: 320px;
 }
 .kg-storyline__list {
 	flex: 1;
@@ -116,8 +117,8 @@ watch(
 	font-size: 13px;
 }
 .kg-storyline__queen {
-	background: linear-gradient(135deg, var(--el-color-primary-light-9), transparent);
-	border: 1px solid var(--el-color-primary-light-7);
+	background: linear-gradient(135deg, #f3e8ff, #faf5ff);
+	border: 1px solid #e9d5ff;
 	border-radius: 8px;
 	padding: 10px;
 	p {
