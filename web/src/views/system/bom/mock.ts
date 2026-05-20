@@ -1,10 +1,59 @@
 import type { BomRecord, BomTreeNode } from './types';
 
 export const bomList: BomRecord[] = [
-	{ id: 'bom-001', name: '75kW 螺杆空压机主 BOM', code: 'BOM-KB75-001', version: 'V3.0', deviceModel: 'KB 75kW 螺杆空压机', productLine: '工业空压机系列', uploader: '张工', uploadTime: '2024-05-18 10:30', updateTime: '2024-05-18 14:20', status: 'Active', ingestStatus: 'Partial' },
-	{ id: 'bom-002', name: '110kW 变频空压机 BOM', code: 'BOM-KB110-002', version: 'V1.0', deviceModel: 'KB 110kW 变频', productLine: '工业空压机系列', uploader: '李工', uploadTime: '2024-05-15 09:15', updateTime: '2024-05-15 09:15', status: 'Draft', ingestStatus: 'Pending' },
-	{ id: 'bom-003', name: '微油螺杆机标准版 BOM', code: 'BOM-KB37-005', version: 'V2.1', deviceModel: 'KB 37kW 标准版', productLine: '微油机系列', uploader: '王工', uploadTime: '2024-05-10 16:45', updateTime: '2024-05-12 11:20', status: 'Active', ingestStatus: 'Complete' },
+	{
+		id: 'bom-001',
+		name: '75kW 螺杆空压机主 BOM',
+		code: 'BOM-KB75-001',
+		version: 'V3.0',
+		deviceModel: 'KB 75kW 螺杆空压机',
+		productLine: '工业空压机系列',
+		uploader: '张工 (系统工程部)',
+		uploadTime: '2024-05-18 10:30',
+		updateTime: '2024-05-18 14:20',
+		status: 'Active',
+		ingestStatus: 'Partial',
+	},
+	{
+		id: 'bom-002',
+		name: '110kW 变频空压机 BOM',
+		code: 'BOM-KB110-002',
+		version: 'V1.0',
+		deviceModel: 'KB 110kW 变频',
+		productLine: '工业空压机系列',
+		uploader: '李工 (系统工程部)',
+		uploadTime: '2024-05-15 09:15',
+		updateTime: '2024-05-15 09:15',
+		status: 'Draft',
+		ingestStatus: 'Pending',
+	},
+	{
+		id: 'bom-003',
+		name: '微油螺杆机标准版 BOM',
+		code: 'BOM-KB37-005',
+		version: 'V2.1',
+		deviceModel: 'KB 37kW 标准版',
+		productLine: '微油机系列',
+		uploader: '王工 (采购部)',
+		uploadTime: '2024-05-10 16:45',
+		updateTime: '2024-05-12 11:20',
+		status: 'Active',
+		ingestStatus: 'Complete',
+	},
 ];
+
+export const bomSummaryById: Record<
+	string,
+	{ name: string; code: string; version: string; deviceModel: string; status: 'Active' | 'Draft' }
+> = {
+	'bom-001': {
+		name: 'KB 75kW 螺杆空压机总成 BOM',
+		code: 'BOM-KB75-001',
+		version: 'V3.0',
+		deviceModel: 'KB 75kW 螺杆空压机',
+		status: 'Active',
+	},
+};
 
 export const workbenchTree: BomTreeNode = {
 	id: 'root',
@@ -24,6 +73,7 @@ export const workbenchTree: BomTreeNode = {
 			children: [
 				{ id: 'n1-1', name: '主轴承', code: 'BRG-001', level: 2, spec: 'D45', status: 'Ingested' },
 				{ id: 'n1-2', name: '阴阳转子', code: 'RTR-002', level: 2, spec: '75kW', status: 'Pending' },
+				{ id: 'n1-3', name: '轴封', code: 'SEAL-03', level: 2, spec: '耐高温', status: 'Pending' },
 			],
 		},
 		{
@@ -33,7 +83,20 @@ export const workbenchTree: BomTreeNode = {
 			level: 1,
 			spec: '综合',
 			status: 'Pending',
-			children: [{ id: 'n2-1', name: '油气分离罐', code: 'TNK-01', level: 2, spec: '300L', status: 'Pending' }],
+			children: [
+				{ id: 'n2-1', name: '油气分离罐', code: 'TNK-01', level: 2, spec: '300L', status: 'Pending' },
+				{ id: 'n2-2', name: '过滤芯', code: 'FLT-05', level: 2, spec: '高精度', status: 'Pending' },
+				{ id: 'n2-3', name: '回油阀', code: 'VLV-11', level: 2, spec: '单向', status: 'Ingested' },
+			],
+		},
+		{
+			id: 'n3',
+			name: '冷却系统',
+			code: 'KB-75-CS-03',
+			level: 1,
+			spec: '风冷',
+			status: 'Ingested',
+			children: [{ id: 'n3-1', name: '冷却风扇', code: 'FAN-01', level: 2, spec: '直连', status: 'Pending' }],
 		},
 	],
 };
