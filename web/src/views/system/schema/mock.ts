@@ -1,9 +1,11 @@
 import type { CommunityNode, EntityNode, RelationNode } from './types';
 
+export const SCHEMA_VERSION = 'KB-ONT-V2.1.0';
+
 export const mockCommunities: CommunityNode[] = [
-	{ id: 'com-1', name: '设备对象社区', nameEn: 'Device Assets', domain: '资产域', members: 12, desc: '承载所有硬件实体及其装配关系', owner: '张工' },
-	{ id: 'com-2', name: '故障问题社区', nameEn: 'Faults & Issues', domain: '质量域', members: 8, desc: '质量及现场维保问题记录与分析', owner: '李工' },
-	{ id: 'com-3', name: '维修维护社区', nameEn: 'Maintenance', domain: '服务域', members: 15, desc: '工单与维护操作规范定义', owner: '王工' },
+	{ id: 'com-1', name: '设备对象社区', nameEn: 'Device Assets', domain: '资产域', members: 12, desc: '承载所有硬件实体及其装配关系', owner: '张工 (系统工程)' },
+	{ id: 'com-2', name: '故障问题社区', nameEn: 'Faults & Issues', domain: '质量域', members: 8, desc: '质量及现场维保问题记录与分析', owner: '李工 (质量中心)' },
+	{ id: 'com-3', name: '维修维护社区', nameEn: 'Maintenance', domain: '服务域', members: 15, desc: '工单与维护操作规范定义', owner: '王工 (售后服务)' },
 ];
 
 export const mockEntities: EntityNode[] = [
@@ -13,11 +15,12 @@ export const mockEntities: EntityNode[] = [
 		nameEn: 'Compressor Main Unit',
 		domain: '设备资产',
 		communities: ['com-1'],
-		x: 120,
-		y: 80,
+		x: 200,
+		y: 150,
 		properties: [
 			{ name: '额定功率', type: 'Number', required: true },
 			{ name: '工作压力', type: 'Number', required: true },
+			{ name: '冷却方式', type: 'Enum', required: false },
 		],
 		impact: { instances: 2450, models: 5, risk: 'High' },
 	},
@@ -27,11 +30,12 @@ export const mockEntities: EntityNode[] = [
 		nameEn: 'Failure Mode',
 		domain: '质量可靠性',
 		communities: ['com-2'],
-		x: 380,
-		y: 80,
+		x: 550,
+		y: 150,
 		properties: [
 			{ name: '故障代码', type: 'String', required: true },
 			{ name: '严重度', type: 'Enum', required: true },
+			{ name: '发生频次', type: 'Number', required: false },
 		],
 		impact: { instances: 12500, models: 12, risk: 'High' },
 	},
@@ -41,9 +45,12 @@ export const mockEntities: EntityNode[] = [
 		nameEn: 'Control Board',
 		domain: '电气控制',
 		communities: ['com-1'],
-		x: 120,
-		y: 220,
-		properties: [{ name: '固件版本', type: 'String', required: true }],
+		x: 200,
+		y: 350,
+		properties: [
+			{ name: '固件版本', type: 'String', required: true },
+			{ name: '供电电压', type: 'Number', required: true },
+		],
 		impact: { instances: 860, models: 2, risk: 'Medium' },
 	},
 ];
@@ -55,7 +62,7 @@ export const mockRelations: RelationNode[] = [
 		nameEn: 'Contains',
 		sourceId: 'ent-001',
 		targetId: 'ent-003',
-		semantics: { desc: '物理或逻辑包含关系', multiValue: true, required: false, inverse: true },
+		semantics: { desc: '物理上或逻辑上的包含/组成的层级关系', multiValue: true, required: false, inverse: true },
 		usage: { communities: ['com-1'], instanceCount: 15600 },
 		impact: { instances: 15600, models: 3, risk: 'Medium' },
 	},
@@ -65,8 +72,20 @@ export const mockRelations: RelationNode[] = [
 		nameEn: 'Has_Failure',
 		sourceId: 'ent-001',
 		targetId: 'ent-002',
-		semantics: { desc: '设备发生了已知失效模式', multiValue: true, required: false, inverse: false },
+		semantics: { desc: '设备实体发生了某种已知的失效模式', multiValue: true, required: false, inverse: false },
 		usage: { communities: ['com-1', 'com-2'], instanceCount: 4200 },
 		impact: { instances: 4200, models: 8, risk: 'High' },
 	},
 ];
+
+export const defaultSchemaText = `namespace KGtestV2
+
+ProductModel(产品型号): EntityType
+    desc: 产品的设计型号
+    properties:
+        modelCode(型号编码): Text
+            index: Text
+            constraint: NotNull,Unique
+    relations:
+        hasBOMPart(包含BOM件): BOMPart
+        basedOnModel(对应型号): ProductModel`;
