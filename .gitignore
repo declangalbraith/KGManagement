@@ -115,7 +115,7 @@ ENV/
 **/migrations/*.sql
 
 # Project specific
-backend/conf/env.py
+
 backend/db.sqlite3
 backend/media/
 backend/__pypackages__/
