@@ -22,6 +22,106 @@ docker_env/postgres/pgdata/
 # Python cache / runtime artifacts
 __pycache__/
 *.pyc
+*.py[cod]
+*$py.class
+*.so
+
+# Distribution / packaging
+.Python
+env/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*,cover
+.hypothesis/
+
+# Translations
+*.mo
+*.pot
+
+# Django stuff:
+*.log
+local_settings.py
+
+# Flask stuff:
+instance/
+.webassets-cache
+
+# Scrapy stuff:
+.scrapy
+
+# Sphinx documentation
+docs/_build/
+
+# PyBuilder
+target/
+
+# IPython Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# celery beat schedule file
+celerybeat-schedule
+
+# dotenv
+.env
+
+# virtualenv
+myenv/
+ENV/
+
+# Spyder project settings
+.spyderproject
+
+# Rope project settings
+.ropeproject
+
+# Database
+*.db
+.DS_Store
+
+# Django migrations
+**/migrations/*.py
+!**/migrations/__init__.py
+**/migrations/*.sql
+
+# Project specific
+backend/conf/env.py
+backend/db.sqlite3
+backend/media/
+backend/__pypackages__/
+backend/package-lock.json
+backend/gunicorn.pid
+!backend/plugins/__init__.py
 
 # KAG runtime artifacts
 backend/ckpt/

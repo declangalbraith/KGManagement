@@ -1,4 +1,4 @@
-Django==4.2.14
+Django
 django-comment-migrate==0.1.7
 django-cors-headers==4.4.0
 django-filter==24.2
@@ -60,4 +60,4 @@ scikit-learn==1.7.2
 Deprecated==1.3.1
 schedule==1.2.2
 pytest==7.4.2
-openspg-kag==0.8.0
+openspg-kag
