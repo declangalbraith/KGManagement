@@ -1,1 +1,34 @@
-export default { message: { pages: { qualityDocs: { title: '质量文档管理', create: '新建文档', detail: '文档详情' } } } };
+export default {
+	message: {
+		pages: {
+			qualityDocs: {
+				title: '质量文档管理',
+				subtitle: '管理 PFMEA、SOP、巡检记录等质量文档全生命周期。',
+				upload: '新建文档',
+				create: '新建文档',
+				detail: '文档详情',
+				searchPlaceholder: '搜索文档名称、编号...',
+				viewActive: '活跃',
+				viewArchived: '已归档',
+				viewDeleted: '回收站',
+				colId: '唯一编号',
+				colName: '文档名称',
+				colType: '文件类型',
+				colNumber: '文档编号',
+				colOwner: '负责人',
+				colStatus: '状态',
+				colVersion: '版本',
+				colUpdated: '更新时间',
+				basicInfo: '基本信息',
+				submit: '提交审批',
+				saveDraft: '保存草稿',
+				saved: '已保存',
+				submitted: '已提交审批',
+				archived: '已归档',
+				restored: '已恢复',
+				deleted: '已删除',
+				auditLog: '操作日志',
+			},
+		},
+	},
+};

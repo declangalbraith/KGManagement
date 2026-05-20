@@ -4,7 +4,7 @@
 		<div class="kg-main">
 			<Header />
 			<main class="kg-content">
-				<router-view />
+				<router-view :key="route.fullPath" />
 			</main>
 		</div>
 		<QueenAssistant />
@@ -12,7 +12,10 @@
 </template>
 
 <script setup lang="ts" name="qualityLayout">
+import { useRoute } from 'vue-router';
 import Sidebar from './components/Sidebar/index.vue';
+
+const route = useRoute();
 import Header from './components/Header/index.vue';
 import QueenAssistant from './components/QueenAssistant/index.vue';
 </script>

@@ -517,6 +517,20 @@ web/src/i18n/pages/{home,issues,schema,...}/
 2. `registerBusinessRoutes` 后 tagsView / `routesList` 是否需手动同步（隐藏路由通常可不同步）。
 3. `qualityLayout` 高度与 `layout-main` 滚动条是否冲突（CSS 微调）。
 
+### 12.3 Vue 实施进度（2026-05-20）
+
+| 阶段 | 状态 |
+|------|------|
+| 0 准备 | 完成（d3、`businessRoutes`、`registerBusinessRoutes`） |
+| 1 业务壳 + 工作台 | 完成 |
+| 2 问题管理 | 完成（列表 / 新建 / 详情 / 故事线 / 8D 抽屉） |
+| 3 辅助质量流程 | 完成（tasks / rca / 8d） |
+| 4 图谱 BOM 知识库 | 完成（含 KnowledgeGraph d3） |
+| 5 其余侧栏 + 辅助 | 完成 |
+| 6 联调收尾 | 完成（缓存策略、`readme-zh.md`、`ROUTES-SMOKE.md`） |
+
+联调清单见 [ROUTES-SMOKE.md](./ROUTES-SMOKE.md)；开发指引见 [readme-zh.md](./readme-zh.md)。
+
 ---
 
-*文档版本：v1.6 | 日期：2026-05-20*
+*文档版本：v1.7 | 日期：2026-05-20*
