@@ -114,23 +114,8 @@ export const handleMenu = (menuData: Array<any>) => {
         parentKey: 'parent',
         strict: true,
     })
-    const dynamicRoutes = [
-        {
-            path: '/home', name: 'home',
-            component: dynamicImport(dynamicViewsModules, '/system/home/index'),
-            meta: {
-                title: 'message.router.home',
-                isLink: '',
-                isHide: false,
-                isKeepAlive: true,
-                isAffix: true,
-                isIframe: false,
-                roles: ['admin'],
-                icon: 'iconfont icon-shouye'
-            }
-        },
-        ...data
-    ]
+    // /home 由 businessRoutes 注入，见 backEnd.ts
+    const dynamicRoutes = [...data]
     return {frameIn:dynamicRoutes,frameOut:frameOutRoutes}
 }
 

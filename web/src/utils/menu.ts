@@ -60,20 +60,7 @@ export const handleMenu = (menuData: Array<any>) => {
         parentKey: 'parent',
         strict: true,
     })
-    const dynamicRoutes = [
-        {
-            path: '/home', name: 'home', component: '/system/home/index', meta: {
-                title: 'message.router.home',
-                isLink: '',
-                isHide: false,
-                isKeepAlive: true,
-                isAffix: true,
-                isIframe: false,
-                roles: ['admin'],
-                icon: 'iconfont icon-shouye'
-            }
-        },
-        ...data
-    ]
+    // /home 由 businessRoutes.getBusinessMenuRoute 注入，见 backEnd.ts
+    const dynamicRoutes = [...data]
     return {frameIn:dynamicRoutes,frameOut:iframeRoutes}
 }

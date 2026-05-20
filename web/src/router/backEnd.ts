@@ -12,6 +12,8 @@ import { useTagsViewRoutes } from '/@/stores/tagsViewRoutes';
 import {useThemeConfig} from "/@/stores/themeConfig";
 import {useMenuApi} from "/@/api/menu/index";
 import { handleMenu } from '../utils/menu';
+import { getBusinessMenuRoute } from '/@/router/businessRoutes';
+import { registerBusinessRoutes, resetBusinessRoutesRegistration } from '/@/router/registerBusinessRoutes';
 import mittBus from '/@/utils/mitt';
 import { BtnPermissionStore } from '/@/plugin/permission/store.permission';
 import {SystemConfigStore} from "/@/stores/systemConfig";
@@ -55,9 +57,13 @@ export async function initBackEndControlRoutes() {
 	// if (res.data.length <= 0) return Promise.resolve(true);
 	// 处理路由（component），替换 dynamicRoutes（/@/router/route）第一个顶级 children 的路由
 	const {frameIn,frameOut} = handleMenu(res.data)
-	dynamicRoutes[0].children = await backEndComponent(frameIn);
+	const businessMenu = await backEndComponent([getBusinessMenuRoute()]);
+	const backendMenus = await backEndComponent(frameIn);
+	dynamicRoutes[0].children = [...(businessMenu || []), ...(backendMenus || [])];
 	// 添加动态路由
 	await setAddRoute();
+	resetBusinessRoutesRegistration();
+	registerBusinessRoutes(true);
 	// 设置路由到 vuex routesList 中（已处理成多级嵌套路由）及缓存多级嵌套数组处理后的一维数组
 	await setFilterMenuAndCacheTagsViewRoutes();
 }
@@ -73,6 +79,8 @@ export async function setRouters(){
 	frameOutRouter.forEach((item:any)=>{
 		router.addRoute(item)
 	})
+	resetBusinessRoutesRegistration();
+	registerBusinessRoutes(true);
 	const storesRoutesList = useRoutesList(pinia);
 	storesRoutesList.setRoutesList([...dynamicRoutes[0].children,...frameOutRouter]);
 	const storesTagsView = useTagsViewRoutes(pinia);
@@ -87,9 +95,13 @@ export async function refreshRoutesForI18n() {
 	const { themeConfig } = storeToRefs(useThemeConfig(pinia));
 	const res = await menuApi.getSystemMenu({ language: themeConfig.value.globalI18n });
 	const { frameIn, frameOut } = handleMenu(res.data);
-	dynamicRoutes[0].children = await backEndComponent(frameIn);
+	const businessMenu = await backEndComponent([getBusinessMenuRoute()]);
+	const backendMenus = await backEndComponent(frameIn);
+	dynamicRoutes[0].children = [...(businessMenu || []), ...(backendMenus || [])];
 	const storesRoutesList = useRoutesList(pinia);
 	storesRoutesList.setRoutesList([...(dynamicRoutes[0].children || []), ...frameOut]);
+	resetBusinessRoutesRegistration();
+	registerBusinessRoutes(true);
 	// 通知侧边栏刷新菜单
 	mittBus.emit('getBreadcrumbIndexSetFilterRoutes');
 }

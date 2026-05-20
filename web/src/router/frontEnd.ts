@@ -8,6 +8,7 @@ import { useUserInfo } from '/@/stores/userInfo';
 import { useTagsViewRoutes } from '/@/stores/tagsViewRoutes';
 import { useRoutesList } from '/@/stores/routesList';
 import { NextLoading } from '/@/utils/loading';
+import { registerBusinessRoutes, resetBusinessRoutesRegistration } from '/@/router/registerBusinessRoutes';
 
 // 前端控制路由
 
@@ -31,6 +32,8 @@ export async function initFrontEndControlRoutes() {
 	if (useUserInfo().userInfos.roles.length <= 0) return Promise.resolve(true);
 	// 添加动态路由
 	await setAddRoute();
+	resetBusinessRoutesRegistration();
+	registerBusinessRoutes(true);
 	// 设置递归过滤有权限的路由到 pinia routesList 中（已处理成多级嵌套路由）及缓存多级嵌套数组处理后的一维数组
 	await setFilterMenuAndCacheTagsViewRoutes();
 }
