@@ -1,41 +1,45 @@
-// 定義內容
 export default {
-    message: {
-        pages: {
-            home: {
-                statCards: {
-                    orderStats: '訂單統計資訊',
-                    monthlyPlan: '月度計劃資訊',
-                    visitStats: '訪問統計資訊',
-                },
-                chart: {
-                    // Line chart (政策補貼額度)
-                    lineTitle: '政策補貼額度',
-                    lineLegendPreOrder: '預購佇列',
-                    lineLegendLatestPrice: '最新成交價',
-                    lineYAxisName: '價格',
-                    month: '月',
-                    // Pie chart (房屋建築工程)
-                    pieTitle: '房屋建築工程',
-                    pieCategory1: '房屋及結構物',
-                    pieCategory2: '專用設備',
-                    pieCategory3: '通用設備',
-                    pieCategory4: '文物和陳列品',
-                    pieCategory5: '圖書、檔案',
-                    // Bar chart (地熱開發利用)
-                    barTitle: '地熱開發利用',
-                    barLegendSupplyTemp: '供溫',
-                    barLegendReturnTemp: '回溫',
-                    barLegendPressure: '壓力值(Mpa)',
-                    barYAxisSupplyReturn: '供回溫度(℃)',
-                },
-                quickNav: {
-                    quickNavTitle: '快捷導航工具',
-                },
-                notifications: {
-                    defaultCreator: '未知用戶',
-                },
-            },
-        },
-    },
+	message: {
+		pages: {
+			home: {
+				title: '工作台',
+				subtitle: '歡迎回來，{name}。這是您今天的工作概覽。',
+				createIssue: '建立問題',
+				pendingTasks: '我的待辦',
+				pendingTasksHint: '任務需要處理',
+				pendingTasksOverdue: '3 個逾期',
+				activeIssues: '處理中問題',
+				activeIssuesHint: '我負責或參與的',
+				pending8D: '待審批 8D 報告',
+				pending8DHint: '需要您的審核',
+				resolvedThisMonth: '本月已解決',
+				resolvedHint: '較上月',
+				resolvedDelta: '+12%',
+				hotIssuesFeed: '公共熱點問題動態',
+				hotIssuesDesc: '公司內部關注度最高的重點問題及即時進展',
+				follow: '關注',
+				comment: '評論',
+				viewDetails: '查看詳情',
+				hideHot: '從熱點列表中隱藏',
+				hiddenDesc: '該問題已從熱點問題列表中移除',
+				followSuccess: '關注成功',
+				followDesc: '您將收到針對此問題的最新動態',
+				tasksToProcess: '待處理任務',
+				tasksDescription: '您有 {count} 個任務需要處理',
+				viewAll: '查看全部',
+				process: '處理',
+				taskAccepted: '任務已接單',
+				taskAcceptedDesc: '您已成功開始處理該任務',
+				systemNotices: '系統公告 & 通知',
+				noticesDescription: '最新消息和流程提醒',
+				announcementBadge: '系統公告',
+				announcementTime: '今天 09:00',
+				announcementTitle: 'QConnect 系統升級通知',
+				announcementContent: '本週末將進行系統維護，屆時將暫停服務 2 小時，請提前保存您的工作進度…',
+				processReminder: '流程節點提醒',
+				processReminderBody: '問題 {issueId} 已流轉至【{node}】節點，請及時處理。',
+				noHotIssues: '暫無熱門問題',
+			},
+		},
+	},
 };

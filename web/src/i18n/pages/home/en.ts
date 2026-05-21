@@ -1,41 +1,43 @@
-// Define content
 export default {
-    message: {
-        pages: {
-            home: {
-                statCards: {
-                    orderStats: 'Order Statistics',
-                    monthlyPlan: 'Monthly Plan Info',
-                    visitStats: 'Visit Statistics',
-                },
-                chart: {
-                    // Line chart (政策补贴额度)
-                    lineTitle: 'Policy Subsidy Quota',
-                    lineLegendPreOrder: 'Pre-Order Queue',
-                    lineLegendLatestPrice: 'Latest Transaction Price',
-                    lineYAxisName: 'Price',
-                    month: '',
-                    // Pie chart (房屋建筑工程)
-                    pieTitle: 'Building & Structural Engineering',
-                    pieCategory1: 'Buildings & Structures',
-                    pieCategory2: 'Special Equipment',
-                    pieCategory3: 'General Equipment',
-                    pieCategory4: 'Cultural Relics & Exhibits',
-                    pieCategory5: 'Books & Archives',
-                    // Bar chart (地热开发利用)
-                    barTitle: 'Geothermal Development & Utilization',
-                    barLegendSupplyTemp: 'Supply Temperature',
-                    barLegendReturnTemp: 'Return Temperature',
-                    barLegendPressure: 'Pressure (Mpa)',
-                    barYAxisSupplyReturn: 'Supply/Return Temp (℃)',
-                },
-                quickNav: {
-                    quickNavTitle: 'Quick Navigation',
-                },
-                notifications: {
-                    defaultCreator: 'Unknown User',
-                },
-            },
-        },
-    },
+	message: {
+		pages: {
+			home: {
+				title: 'Workbench',
+				subtitle: 'Welcome back, {name}. Here is your overview for today.',
+				createIssue: 'Create Issue',
+				pendingTasks: 'My Tasks',
+				pendingTasksHint: 'tasks need attention',
+				pendingTasksOverdue: '3 overdue',
+				activeIssues: 'Active Issues',
+				activeIssuesHint: 'Owned or participating',
+				pending8D: '8D Pending Approval',
+				pending8DHint: 'Awaiting your review',
+				resolvedThisMonth: 'Resolved This Month',
+				resolvedHint: 'vs last month',
+				resolvedDelta: '+12%',
+				hotIssuesFeed: 'Hot Issues Feed',
+				hotIssuesDesc: 'Key issues with highest internal attention and live progress',
+				follow: 'Follow',
+				comment: 'Comment',
+				viewDetails: 'View details',
+				hideHot: 'Hide from hot list',
+				hiddenDesc: 'Removed from hot issues list',
+				followDesc: 'You will receive updates for this issue',
+				tasksToProcess: 'Tasks to Process',
+				tasksDescription: 'You have {count} tasks to process',
+				viewAll: 'View all',
+				process: 'Process',
+				taskAcceptedDesc: 'Task started successfully',
+				systemNotices: 'Announcements & Notifications',
+				noticesDescription: 'Latest news and workflow alerts',
+				announcementBadge: 'Announcement',
+				announcementTime: 'Today 09:00',
+				announcementTitle: 'QConnect system upgrade',
+				announcementContent: 'Maintenance this weekend; service paused for 2 hours. Please save your work.',
+				processReminder: 'Workflow reminder',
+				processReminderBody: 'Issue {issueId} moved to [{node}]. Please act promptly.',
+				noHotIssues: 'No hot issues',
+			},
+		},
+	},
 };

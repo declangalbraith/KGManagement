@@ -1,41 +1,46 @@
-// 定义内容
 export default {
-    message: {
-        pages: {
-            home: {
-                statCards: {
-                    orderStats: '订单统计信息',
-                    monthlyPlan: '月度计划信息',
-                    visitStats: '访问统计信息',
-                },
-                chart: {
-                    // Line chart (政策补贴额度)
-                    lineTitle: '政策补贴额度',
-                    lineLegendPreOrder: '预购队列',
-                    lineLegendLatestPrice: '最新成交价',
-                    lineYAxisName: '价格',
-                    month: '月',
-                    // Pie chart (房屋建筑工程)
-                    pieTitle: '房屋建筑工程',
-                    pieCategory1: '房屋及结构物',
-                    pieCategory2: '专用设备',
-                    pieCategory3: '通用设备',
-                    pieCategory4: '文物和陈列品',
-                    pieCategory5: '图书、档案',
-                    // Bar chart (地热开发利用)
-                    barTitle: '地热开发利用',
-                    barLegendSupplyTemp: '供温',
-                    barLegendReturnTemp: '回温',
-                    barLegendPressure: '压力值(Mpa)',
-                    barYAxisSupplyReturn: '供回温度(℃)',
-                },
-                quickNav: {
-                    quickNavTitle: '快捷导航工具',
-                },
-                notifications: {
-                    defaultCreator: '未知用户',
-                },
-            },
-        },
-    },
+	message: {
+		pages: {
+			home: {
+				title: '工作台',
+				subtitle: '欢迎回来，{name}。这是您今天的工作概览。',
+				createIssue: '创建问题',
+				pendingTasks: '我的待办',
+				pendingTasksHint: '任务需要处理',
+				pendingTasksOverdue: '3 个逾期',
+				activeIssues: '处理中问题',
+				activeIssuesHint: '我负责或参与的',
+				pending8D: '待审批 8D 报告',
+				pending8DHint: '需要您的审核',
+				resolvedThisMonth: '本月已解决',
+				resolvedHint: '较上月',
+				resolvedDelta: '+12%',
+				hotIssuesFeed: '公共热点问题动态',
+				hotIssuesDesc: '公司内部关注度最高的重点问题及实时进展',
+				follow: '关注',
+				comment: '评论',
+				viewDetails: '查看详情',
+				hideHot: '从热点列表中隐藏',
+				hidden: '已隐藏',
+				hiddenDesc: '该问题已从热点问题列表中移除',
+				followSuccess: '关注成功',
+				followDesc: '您将收到针对此问题的最新动态',
+				tasksToProcess: '待处理任务',
+				tasksDescription: '您有 {count} 个任务需要处理',
+				viewAll: '查看全部',
+				process: '处理',
+				taskAccepted: '任务已接单',
+				taskAcceptedDesc: '您已成功开始处理该任务',
+				systemNotices: '系统公告 & 通知',
+				noticesDescription: '最新消息和流程提醒',
+				announcementBadge: '系统公告',
+				announcementTime: '今天 09:00',
+				announcementTitle: 'QConnect 系统升级通知',
+				announcementContent: '本周末将进行系统维护，届时将暂停服务 2 小时，请提前保存您的工作进度…',
+				processReminder: '流程节点提醒',
+				processReminderBody: '问题 {issueId} 已流转至【{node}】节点，请及时处理。',
+				noHotIssues: '暂无热门问题',
+			},
+		},
+	},
 };

@@ -1,0 +1,28 @@
+export default {
+	message: {
+		pages: {
+			qualityLayout: {
+				sidebar: {
+					dashboard: 'Workbench',
+					issues: 'Issues',
+					bom: 'BOM',
+					schema: 'Schema Design',
+					qualityDocs: 'Quality Docs',
+					knowledge: 'Knowledge',
+					analytics: 'Analytics',
+					admin: 'Admin',
+					audit: 'Audit',
+				},
+				kbAssistant: {
+					wakeTooltip: 'Wake KB Assistant',
+					title: 'KB Assistant',
+					systemReady: 'Ready',
+					contextGlobal: 'Global',
+					contextIssue: 'Current Issue',
+					configSkills: 'Configure Skills',
+					inputPlaceholder: "Enter command, or '/' for shortcuts...",
+				},
+			},
+		},
+	},
+};
