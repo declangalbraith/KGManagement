@@ -10,11 +10,17 @@ export const rawGraphNodes: GraphNode[] = [
 	{ id: 'COMP-003', group: 2, label: '制动夹钳', type: 'Component' },
 	{ id: 'ISS-001', group: 1, label: '制动盘异常磨损', type: 'Issue', occurrences: 12 },
 	{ id: 'ISS-002', group: 1, label: '制动盘偏磨异响', type: 'Issue', occurrences: 5 },
+	{ id: 'ISS-003', group: 1, label: '闸瓦异常脱落', type: 'Issue', occurrences: 2 },
 	{ id: 'CAUSE-001', group: 3, label: '材质过硬', type: 'Cause', confidence: 0.92 },
 	{ id: 'CAUSE-002', group: 3, label: '配方比例错误', type: 'Cause', confidence: 0.85 },
+	{ id: 'CAUSE-003', group: 3, label: '夹钳安装不平行', type: 'Cause', confidence: 0.78 },
+	{ id: 'CAUSE-004', group: 3, label: '固定螺栓松动', type: 'Cause', confidence: 0.88 },
 	{ id: 'SOL-001', group: 4, label: '更新检验规范', type: 'Solution', occurrences: 45 },
 	{ id: 'SOL-002', group: 4, label: '隔离退回', type: 'Solution', occurrences: 8 },
+	{ id: 'SOL-003', group: 4, label: '重新校准工装', type: 'Solution', occurrences: 12 },
+	{ id: 'SOL-004', group: 4, label: '增加防松标记', type: 'Solution', occurrences: 30 },
 	{ id: 'DOC-001', group: 7, label: '制动盘总成 PFMEA', type: 'QualityDoc' },
+	{ id: 'DOC-002', group: 7, label: '闸瓦安装 SOP', type: 'QualityDoc' },
 ];
 
 export const rawGraphLinks: GraphLink[] = [
@@ -22,20 +28,27 @@ export const rawGraphLinks: GraphLink[] = [
 	{ source: 'PROJ-B', target: 'PROD-Y', label: '包含' },
 	{ source: 'PROD-X', target: 'COMP-001', label: '使用' },
 	{ source: 'PROD-X', target: 'COMP-002', label: '使用' },
+	{ source: 'PROD-Y', target: 'COMP-002', label: '使用' },
+	{ source: 'PROD-Y', target: 'COMP-003', label: '使用' },
 	{ source: 'COMP-002', target: 'ISS-001', label: '发生' },
 	{ source: 'COMP-002', target: 'ISS-002', label: '发生' },
+	{ source: 'COMP-001', target: 'ISS-003', label: '发生' },
+	{ source: 'COMP-003', target: 'ISS-002', label: '关联' },
 	{ source: 'ISS-001', target: 'CAUSE-001', label: '归因于' },
 	{ source: 'CAUSE-001', target: 'CAUSE-002', label: '深层原因' },
+	{ source: 'ISS-002', target: 'CAUSE-003', label: '归因于' },
+	{ source: 'ISS-003', target: 'CAUSE-004', label: '归因于' },
 	{ source: 'CAUSE-001', target: 'SOL-001', label: '解决措施' },
 	{ source: 'CAUSE-002', target: 'SOL-002', label: '解决措施' },
+	{ source: 'CAUSE-003', target: 'SOL-003', label: '解决措施' },
+	{ source: 'CAUSE-004', target: 'SOL-004', label: '解决措施' },
 	{ source: 'DOC-001', target: 'COMP-002', label: '关联部件' },
 	{ source: 'DOC-001', target: 'ISS-001', label: '预防失效' },
+	{ source: 'DOC-002', target: 'COMP-001', label: '操作指导' },
+	{ source: 'DOC-002', target: 'SOL-004', label: '落实措施' },
 ];
 
-export const graphTypeConfig: Record<
-	GraphNode['type'],
-	{ color: string; label: string; icon: string }
-> = {
+export const graphTypeConfig: Record<GraphNode['type'], { color: string; label: string; icon: string }> = {
 	Project: { color: '#a855f7', label: '项目', icon: '🏢' },
 	Product: { color: '#06b6d4', label: '产品', icon: '🚆' },
 	Issue: { color: '#ef4444', label: '问题', icon: '⚠' },
@@ -44,3 +57,6 @@ export const graphTypeConfig: Record<
 	Solution: { color: '#10b981', label: '解决方案', icon: '✓' },
 	QualityDoc: { color: '#4f46e5', label: '质量文档', icon: '📄' },
 };
+
+export const graphChatWelcome =
+	'您好！我是图谱智能助手。您可以向我提问，例如：“跨项目分析制动盘的共性故障” 或 “查询闸瓦脱落的解决链路”。我会为您深度检索并高亮相关图谱。';
