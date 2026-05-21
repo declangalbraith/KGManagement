@@ -159,40 +159,12 @@
 		</div>
 
 		<!-- 图谱构建 -->
-		<div v-else-if="activeTab === 'builder'" class="kg-kb__tab-panel kg-glass kg-kb__builder">
-			<el-empty :description="t('message.pages.knowledge.builderHint')" />
-			<button type="button" class="kg-kb__schema-btn" @click="router.push('/schema')">
-				{{ t('message.pages.knowledge.goSchema') }}
-			</button>
+		<div v-else-if="activeTab === 'builder'" class="kg-kb__builder-wrap">
+			<KnowledgeGraphBuilder />
 		</div>
 
 		<!-- 知识管理 -->
-		<div v-else class="kg-kb__tab-panel kg-glass">
-			<div class="kg-kb__mgmt-table-wrap">
-				<table class="kg-kb__mgmt-table">
-					<thead>
-						<tr>
-							<th>{{ t('message.pages.knowledge.colTitle') }}</th>
-							<th>{{ t('message.pages.knowledge.colType') }}</th>
-							<th>评分</th>
-							<th class="is-right">{{ t('message.pages.knowledge.openDoc') }}</th>
-						</tr>
-					</thead>
-					<tbody>
-						<tr v-for="row in knowledgeDocs" :key="row.id">
-							<td class="is-title">{{ row.title }}</td>
-							<td>{{ row.type }}</td>
-							<td>{{ row.rating }}</td>
-							<td class="is-right">
-								<button type="button" class="kg-kb__link" @click="openDoc({ title: row.title, id: row.id })">
-									{{ t('message.pages.knowledge.openDoc') }}
-								</button>
-							</td>
-						</tr>
-					</tbody>
-				</table>
-			</div>
-		</div>
+		<KnowledgeManagement v-else />
 
 		<DocumentViewer
 			v-model="viewerOpen"
@@ -236,11 +208,12 @@ import {
 	TrendCharts,
 } from '@element-plus/icons-vue';
 import KnowledgeGraph from '/@/views/system/common/components/KnowledgeGraph/index.vue';
+import KnowledgeGraphBuilder from './components/KnowledgeGraphBuilder.vue';
+import KnowledgeManagement from './components/KnowledgeManagement.vue';
 import DocumentViewer from '../qualityDocs/components/DocumentViewer.vue';
 import {
 	hotTopics,
 	knowledgeCategories,
-	knowledgeDocs,
 	latestQualityDocs,
 	recommendedKnowledge,
 } from './mock';
@@ -885,64 +858,8 @@ function openDoc(item: RecommendedKnowledge | { title: string; id?: string }) {
 	min-height: 750px;
 }
 
-.kg-kb__builder {
-	text-align: center;
-	padding: 48px 24px;
-}
-
-.kg-kb__schema-btn {
-	margin-top: 16px;
-	height: 40px;
-	padding: 0 20px;
-	border: none;
-	border-radius: 6px;
-	background: #1a1a1a;
-	color: #fff;
-	font-size: 14px;
-	cursor: pointer;
-	&:hover {
-		background: #333;
-	}
-}
-
-.kg-kb__mgmt-table-wrap {
-	overflow-x: auto;
-}
-
-.kg-kb__mgmt-table {
-	width: 100%;
-	border-collapse: collapse;
-	font-size: 14px;
-	th,
-	td {
-		padding: 14px 16px;
-		border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-		text-align: left;
-	}
-	th {
-		font-size: 12px;
-		font-weight: 600;
-		color: #64748b;
-		background: #f8fafc;
-	}
-	.is-title {
-		font-weight: 500;
-		color: #0f172a;
-	}
-	.is-right {
-		text-align: right;
-	}
-}
-
-.kg-kb__link {
-	border: none;
-	background: none;
-	color: var(--el-color-primary);
-	cursor: pointer;
-	font-size: 14px;
-	&:hover {
-		text-decoration: underline;
-	}
+.kg-kb__builder-wrap {
+	min-height: 800px;
 }
 
 .kg-kb__doc-content {
