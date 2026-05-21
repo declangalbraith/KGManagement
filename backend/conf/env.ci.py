@@ -5,6 +5,11 @@ from application.settings import BASE_DIR
 # GitHub Actions: SQLite + local Redis (see playwright-i18n workflow services)
 DATABASE_ENGINE = "django.db.backends.sqlite3"
 DATABASE_NAME = os.path.join(BASE_DIR, "db.ci.sqlite3")
+# settings.py always passes these keys; SQLite ignores them
+DATABASE_HOST = ""
+DATABASE_PORT = ""
+DATABASE_USER = ""
+DATABASE_PASSWORD = ""
 
 TABLE_PREFIX = "dvadmin_"
 
