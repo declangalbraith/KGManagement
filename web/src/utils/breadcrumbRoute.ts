@@ -36,6 +36,13 @@ function pushNavigateTarget(list: RouteItem[], path: string, meta: RouteItem['me
 	list.push({ path, meta, children: [] });
 }
 
+/** 不参与面包屑的路由（layout 通配 404/401 等） */
+function shouldIncludeMatchedRecord(name: string, title: unknown): boolean {
+	if (name === '/' || name === 'home' || name === 'kg-home-page') return false;
+	if (name === 'notFound' || name === 'noPower') return false;
+	return Boolean(title);
+}
+
 /** 质量中心等业务路由：matched + meta.breadcrumbParents + 动态 extras */
 function buildBusinessBreadcrumb(
 	route: RouteLocationNormalizedLoaded,
@@ -46,11 +53,9 @@ function buildBusinessBreadcrumb(
 	if (parents?.length) {
 		parents.forEach((p) => list.push(crumbFromMeta(p)));
 	} else {
-		const titled = route.matched.filter((record) => {
-			const name = String(record.name ?? '');
-			if (name === '/' || name === 'home' || name === 'kg-home-page') return false;
-			return Boolean(record.meta?.title);
-		});
+		const titled = route.matched.filter((record) =>
+			shouldIncludeMatchedRecord(String(record.name ?? ''), record.meta?.title)
+		);
 		titled.slice(0, -1).forEach((record) => {
 			const path = record.path.includes(':') ? `/${route.path.split('/').filter(Boolean).slice(0, 1).join('/')}` : record.path;
 			pushNavigateTarget(list, path, { title: record.meta!.title as string, icon: record.meta?.icon as string | undefined });

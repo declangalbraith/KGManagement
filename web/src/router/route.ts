@@ -58,7 +58,7 @@ export const notFoundAndNoPower = [
 		name: 'notFound',
 		component: () => import('/@/views/system/error/404.vue'),
 		meta: {
-			title: 'message.staticRoutes.notFound',
+			title: 'staticRoutes.notFound',
 			isHide: true,
 		},
 	},
@@ -67,7 +67,7 @@ export const notFoundAndNoPower = [
 		name: 'noPower',
 		component: () => import('/@/views/system/error/401.vue'),
 		meta: {
-			title: 'message.staticRoutes.noPower',
+			title: 'staticRoutes.noPower',
 			isHide: true,
 		},
 	},
