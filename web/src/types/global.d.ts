@@ -36,6 +36,7 @@ declare type RouteItem<T = any> = {
 	k?: T;
 	meta?: {
 		title?: string;
+		tagsViewName?: string;
 		isLink?: string;
 		isHide?: boolean;
 		isKeepAlive?: boolean;
@@ -47,6 +48,8 @@ declare type RouteItem<T = any> = {
 		isDynamicPath?: string;
 		isIframeOpen?: string;
 		loading?: boolean;
+		/** 业务路由自定义面包屑前缀（质量中心等） */
+		breadcrumbParents?: Array<{ title: string; path?: string }>;
 	};
 	children: T[];
 	query?: { [key: string]: T };

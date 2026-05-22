@@ -1,12 +1,5 @@
 <template>
 	<div class="kg-bom" :class="{ 'is-embedded': embedded }">
-		<div v-if="!embedded" class="kg-bom__breadcrumb">
-			<el-icon><Coin /></el-icon>
-			<span>{{ t('message.pages.bom.breadcrumbSystem') }}</span>
-			<el-icon class="kg-bom__chev"><ArrowRight /></el-icon>
-			<span class="is-current">{{ t('message.pages.bom.breadcrumbCurrent') }}</span>
-		</div>
-
 		<div v-if="!embedded" class="kg-bom__head">
 			<h1 class="kg-bom__title">{{ t('message.pages.bom.title') }}</h1>
 			<button type="button" class="kg-bom__btn-create" @click="onCreate">
@@ -134,8 +127,6 @@ import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { ElMessage } from 'element-plus';
 import {
-	ArrowRight,
-	Coin,
 	Delete,
 	Document,
 	Download,
@@ -254,23 +245,6 @@ function onDelete(id: string) {
 .kg-bom__head--embedded {
 	justify-content: flex-end;
 	margin-bottom: 16px;
-}
-
-.kg-bom__breadcrumb {
-	display: flex;
-	align-items: center;
-	gap: 6px;
-	font-size: 13px;
-	color: #64748b;
-	margin-bottom: 12px;
-	.is-current {
-		color: #0f172a;
-		font-weight: 500;
-	}
-}
-
-.kg-bom__chev {
-	font-size: 12px;
 }
 
 .kg-bom__head {

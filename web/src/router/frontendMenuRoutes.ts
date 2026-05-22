@@ -44,6 +44,9 @@ const noCacheMeta = {
 	isKeepAlive: false,
 };
 
+/** 质量中心业务页通用前缀：质量系统 */
+const qualityBreadcrumbRoot = [{ title: 'message.pages.bom.breadcrumbSystem', path: '/home' }];
+
 /** 侧边栏 + 一级业务路由配置 */
 export type FrontendMenuRouteItem = {
 	path: string;
@@ -90,7 +93,19 @@ export const FRONTEND_MENU_ROUTES: FrontendMenuRouteItem[] = [
 		showInSidebar: true,
 		sidebarIcon: Document,
 		extraChildren: [
-			{ path: 'bom/:id/extract', name: 'kg-bom-workbench', component: '/system/bom/workbench/index', meta: { ...noCacheMeta, title: 'message.pages.bom.workbench' } },
+			{
+				path: 'bom/:id/extract',
+				name: 'kg-bom-workbench',
+				component: '/system/bom/workbench/index',
+				meta: {
+					...noCacheMeta,
+					title: 'message.pages.bom.extractBreadcrumb',
+					breadcrumbParents: [
+						...qualityBreadcrumbRoot,
+						{ title: 'message.pages.bom.breadcrumbCurrent', path: '/document-management?tab=bom' },
+					],
+				},
+			},
 			{ path: 'quality/new', name: 'kg-quality-docs-create', component: '/system/qualityDocs/create/index', meta: { ...noCacheMeta, title: 'message.pages.qualityDocs.create' } },
 			{ path: 'quality/:id', name: 'kg-quality-docs-detail', component: '/system/qualityDocs/detail/index', meta: { ...noCacheMeta, title: 'message.pages.qualityDocs.detail' } },
 		],
@@ -164,11 +179,12 @@ const SIDEBAR_I18N_BY_PATH: Record<string, string> = {
 
 function shell(item: FrontendMenuRouteItem): BusinessRouteRaw {
 	const { path, name, title, pageComponent, extraChildren } = item;
+	const parentMeta = { ...hiddenMeta, title, breadcrumbParents: qualityBreadcrumbRoot };
 	const children: BusinessRouteRaw[] = [
-		{ path: '', name: `${name}-index`, component: pageComponent, meta: { ...hiddenMeta, title } },
+		{ path: '', name: `${name}-index`, component: pageComponent, meta: { ...parentMeta } },
 		...(extraChildren || []),
 	];
-	return { path, name, component: LAYOUT, meta: { ...hiddenMeta, title }, children };
+	return { path, name, component: LAYOUT, meta: parentMeta, children };
 }
 
 /** 由菜单列表生成业务路由（供 registerBusinessRoutes） */
