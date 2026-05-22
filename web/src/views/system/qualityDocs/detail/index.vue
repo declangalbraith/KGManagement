@@ -2,7 +2,7 @@
 	<div v-if="doc" class="kg-doc-detail">
 		<header class="kg-doc-detail__head">
 			<div class="kg-doc-detail__head-left">
-				<button type="button" class="kg-doc-back" @click="router.push('/quality-docs')">
+				<button type="button" class="kg-doc-back" @click="router.push('/document-management?tab=quality')">
 					<el-icon><ArrowLeft /></el-icon>
 				</button>
 				<div>

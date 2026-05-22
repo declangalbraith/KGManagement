@@ -6,7 +6,8 @@
 export type BusinessRouteRaw = {
 	path: string;
 	name: string;
-	component: string;
+	component?: string;
+	redirect?: string;
 	meta: Record<string, unknown>;
 	children?: BusinessRouteRaw[];
 };
@@ -63,14 +64,12 @@ export function getBusinessRoutes(): BusinessRouteRaw[] {
 			{ path: 'new', name: 'kg-issues-create', component: '/system/issues/create/index', meta: { ...noCacheMeta, title: 'message.pages.issues.create' } },
 			{ path: ':id', name: 'kg-issues-detail', component: '/system/issues/detail/index', meta: { ...noCacheMeta, title: 'message.pages.issues.detail' } },
 		]),
-		shell('/bom-management', 'kg-bom', 'message.pages.bom.title', '/system/bom/index', [
-			{ path: ':id/extract', name: 'kg-bom-workbench', component: '/system/bom/workbench/index', meta: { ...noCacheMeta, title: 'message.pages.bom.workbench' } },
+		shell('/document-management', 'kg-documents', 'message.pages.documentManagement.title', '/system/documentManagement/index', [
+			{ path: 'bom/:id/extract', name: 'kg-bom-workbench', component: '/system/bom/workbench/index', meta: { ...noCacheMeta, title: 'message.pages.bom.workbench' } },
+			{ path: 'quality/new', name: 'kg-quality-docs-create', component: '/system/qualityDocs/create/index', meta: { ...noCacheMeta, title: 'message.pages.qualityDocs.create' } },
+			{ path: 'quality/:id', name: 'kg-quality-docs-detail', component: '/system/qualityDocs/detail/index', meta: { ...noCacheMeta, title: 'message.pages.qualityDocs.detail' } },
 		]),
 		shell('/schema', 'kg-schema', 'message.pages.schema.title', '/system/schema/index'),
-		shell('/quality-docs', 'kg-quality-docs', 'message.pages.qualityDocs.title', '/system/qualityDocs/index', [
-			{ path: 'new', name: 'kg-quality-docs-create', component: '/system/qualityDocs/create/index', meta: { ...noCacheMeta, title: 'message.pages.qualityDocs.create' } },
-			{ path: ':id', name: 'kg-quality-docs-detail', component: '/system/qualityDocs/detail/index', meta: { ...noCacheMeta, title: 'message.pages.qualityDocs.detail' } },
-		]),
 		shell('/knowledge', 'kg-knowledge', 'message.pages.knowledge.title', '/system/knowledge/index', [
 			{ path: ':id', name: 'kg-knowledge-detail', component: '/system/knowledge/index', meta: { ...noCacheMeta, title: 'message.pages.knowledge.detail' } },
 		]),
@@ -86,5 +85,11 @@ export function getBusinessRoutes(): BusinessRouteRaw[] {
 		]),
 		shell('/ai-assistant', 'kg-ai', 'message.pages.aiAssistant.title', '/system/aiAssistant/index'),
 		shell('/notifications', 'kg-notifications', 'message.pages.notifications.title', '/system/notifications/index'),
+		// 旧路径兼容重定向
+		{ path: '/bom-management', name: 'kg-bom-legacy', redirect: '/document-management?tab=bom', meta: hiddenMeta },
+		{ path: '/bom-management/:id/extract', name: 'kg-bom-workbench-legacy', redirect: '/document-management/bom/:id/extract', meta: hiddenMeta },
+		{ path: '/quality-docs', name: 'kg-quality-docs-legacy', redirect: '/document-management?tab=quality', meta: hiddenMeta },
+		{ path: '/quality-docs/new', name: 'kg-quality-docs-create-legacy', redirect: '/document-management/quality/new', meta: hiddenMeta },
+		{ path: '/quality-docs/:id', name: 'kg-quality-docs-detail-legacy', redirect: '/document-management/quality/:id', meta: hiddenMeta },
 	];
 }

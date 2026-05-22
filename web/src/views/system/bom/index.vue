@@ -1,14 +1,20 @@
 <template>
-	<div class="kg-bom">
-		<div class="kg-bom__breadcrumb">
+	<div class="kg-bom" :class="{ 'is-embedded': embedded }">
+		<div v-if="!embedded" class="kg-bom__breadcrumb">
 			<el-icon><Coin /></el-icon>
 			<span>{{ t('message.pages.bom.breadcrumbSystem') }}</span>
 			<el-icon class="kg-bom__chev"><ArrowRight /></el-icon>
 			<span class="is-current">{{ t('message.pages.bom.breadcrumbCurrent') }}</span>
 		</div>
 
-		<div class="kg-bom__head">
+		<div v-if="!embedded" class="kg-bom__head">
 			<h1 class="kg-bom__title">{{ t('message.pages.bom.title') }}</h1>
+			<button type="button" class="kg-bom__btn-create" @click="onCreate">
+				<el-icon><Plus /></el-icon>
+				{{ t('message.pages.bom.create') }}
+			</button>
+		</div>
+		<div v-else class="kg-bom__head kg-bom__head--embedded">
 			<button type="button" class="kg-bom__btn-create" @click="onCreate">
 				<el-icon><Plus /></el-icon>
 				{{ t('message.pages.bom.create') }}
@@ -89,7 +95,7 @@
 								<button
 									type="button"
 									class="kg-bom__action-primary"
-									@click="router.push(`/bom-management/${bom.id}/extract`)"
+									@click="router.push(`${routePrefix}/bom/${bom.id}/extract`)"
 								>
 									<el-icon><Share /></el-icon>
 									{{ t('message.pages.bom.extractGraph') }}
@@ -118,6 +124,17 @@ import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { ElMessage } from 'element-plus';
+
+const props = withDefaults(
+	defineProps<{
+		embedded?: boolean;
+		routePrefix?: string;
+	}>(),
+	{
+		embedded: false,
+		routePrefix: '/document-management',
+	}
+);
 import {
 	ArrowRight,
 	Coin,
@@ -193,7 +210,7 @@ function onFileChange(e: Event) {
 }
 
 function onView(id: string) {
-	router.push(`/bom-management/${id}/extract`);
+	router.push(`${props.routePrefix}/bom/${id}/extract`);
 }
 
 function onEdit(id: string) {
@@ -211,6 +228,17 @@ function onDelete(id: string) {
 	max-width: 1280px;
 	margin: 0 auto;
 	padding: 0 8px 32px;
+
+	&.is-embedded {
+		max-width: none;
+		margin: 0;
+		padding: 0;
+	}
+}
+
+.kg-bom__head--embedded {
+	justify-content: flex-end;
+	margin-bottom: 16px;
 }
 
 .kg-bom__breadcrumb {

@@ -1,11 +1,17 @@
 <template>
-	<div class="kg-qdocs">
-		<div class="kg-qdocs__head">
+	<div class="kg-qdocs" :class="{ 'is-embedded': embedded }">
+		<div v-if="!embedded" class="kg-qdocs__head">
 			<div>
 				<h1 class="kg-qdocs__title">{{ t('message.pages.qualityDocs.title') }}</h1>
 				<p class="kg-qdocs__subtitle">{{ t('message.pages.qualityDocs.subtitle') }}</p>
 			</div>
-			<button type="button" class="kg-qdocs__btn-create" @click="router.push('/quality-docs/new')">
+			<button type="button" class="kg-qdocs__btn-create" @click="router.push(`${routePrefix}/quality/new`)">
+				<el-icon><Plus /></el-icon>
+				{{ t('message.pages.qualityDocs.upload') }}
+			</button>
+		</div>
+		<div v-else class="kg-qdocs__head kg-qdocs__head--embedded">
+			<button type="button" class="kg-qdocs__btn-create" @click="router.push(`${routePrefix}/quality/new`)">
 				<el-icon><Plus /></el-icon>
 				{{ t('message.pages.qualityDocs.upload') }}
 			</button>
@@ -78,7 +84,7 @@
 							v-for="doc in filtered"
 							:key="doc.id"
 							class="kg-qdocs__row"
-							@click="router.push(`/quality-docs/${doc.id}`)"
+							@click="router.push(`${routePrefix}/quality/${doc.id}`)"
 						>
 							<td class="is-mono">{{ doc.uniqueId }}</td>
 							<td>
@@ -98,7 +104,7 @@
 											type="button"
 											class="kg-icon-btn"
 											:title="t('message.pages.qualityDocs.view')"
-											@click="router.push(`/quality-docs/${doc.id}`)"
+											@click="router.push(`${routePrefix}/quality/${doc.id}`)"
 										>
 											<el-icon><View /></el-icon>
 										</button>
@@ -146,6 +152,17 @@ import { ElMessage } from 'element-plus';
 import { Delete, DocumentDelete, Filter, FolderOpened, Plus, RefreshRight, Search, View } from '@element-plus/icons-vue';
 import type { DocViewMode, QualityDocItem } from './types';
 import { mockQualityDocs } from './mock';
+
+withDefaults(
+	defineProps<{
+		embedded?: boolean;
+		routePrefix?: string;
+	}>(),
+	{
+		embedded: false,
+		routePrefix: '/document-management',
+	}
+);
 
 const { t } = useI18n();
 const router = useRouter();
@@ -212,12 +229,21 @@ function restoreDoc(id: string) {
 	border-radius: 8px;
 }
 
+.kg-qdocs.is-embedded {
+	max-width: none;
+}
+
 .kg-qdocs__head {
 	display: flex;
 	justify-content: space-between;
 	align-items: flex-start;
 	margin-bottom: 24px;
 	gap: 16px;
+}
+
+.kg-qdocs__head--embedded {
+	justify-content: flex-end;
+	margin-bottom: 16px;
 }
 
 .kg-qdocs__title {

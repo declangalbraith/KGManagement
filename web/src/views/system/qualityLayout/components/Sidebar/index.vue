@@ -27,7 +27,6 @@ import { computed } from 'vue';
 import { useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import {
-	Coin,
 	Connection,
 	DataAnalysis,
 	Document,
@@ -44,9 +43,8 @@ const { t } = useI18n();
 const navItems = computed(() => [
 	{ path: '/home', label: t('message.pages.qualityLayout.sidebar.dashboard'), icon: Odometer },
 	{ path: '/issues', label: t('message.pages.qualityLayout.sidebar.issues'), icon: Tickets },
-	{ path: '/bom-management', label: t('message.pages.qualityLayout.sidebar.bom'), icon: Coin },
+	{ path: '/document-management', label: t('message.pages.qualityLayout.sidebar.documents'), icon: Document },
 	{ path: '/schema', label: t('message.pages.qualityLayout.sidebar.schema'), icon: Connection },
-	{ path: '/quality-docs', label: t('message.pages.qualityLayout.sidebar.qualityDocs'), icon: Document },
 	{ path: '/knowledge', label: t('message.pages.qualityLayout.sidebar.knowledge'), icon: Reading },
 	{ path: '/analytics', label: t('message.pages.qualityLayout.sidebar.analytics'), icon: DataAnalysis },
 	{ path: '/admin', label: t('message.pages.qualityLayout.sidebar.admin'), icon: Setting },

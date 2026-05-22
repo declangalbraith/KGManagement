@@ -5,7 +5,7 @@
 				<el-icon><Coin /></el-icon>
 				<span>{{ t('message.pages.bom.breadcrumbSystem') }}</span>
 				<el-icon class="kg-bom-wb__chev"><ArrowRight /></el-icon>
-				<button type="button" class="kg-bom-wb__link" @click="router.push('/bom-management')">
+				<button type="button" class="kg-bom-wb__link" @click="router.push('/document-management?tab=bom')">
 					{{ t('message.pages.bom.breadcrumbCurrent') }}
 				</button>
 				<el-icon class="kg-bom-wb__chev"><ArrowRight /></el-icon>
@@ -16,7 +16,7 @@
 
 			<div class="kg-bom-wb__title-row">
 				<div class="kg-bom-wb__title-left">
-					<button type="button" class="kg-bom-wb__back" @click="router.push('/bom-management')">
+					<button type="button" class="kg-bom-wb__back" @click="router.push('/document-management?tab=bom')">
 						<el-icon><ArrowLeft /></el-icon>
 					</button>
 					<h1>{{ t('message.pages.bom.extractWorkbench') }}</h1>

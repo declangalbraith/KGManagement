@@ -186,6 +186,10 @@ export function setBackEndControlRefreshRoutes() {
 export function backEndComponent(routes: any) {
 	if (!routes) return;
 	return routes.map((item: any) => {
+		if (item.redirect) {
+			item.children && backEndComponent(item.children);
+			return item;
+		}
 		if (item.component) item.component = dynamicImport(dynamicViewsModules, item.component as string);
 		if(item.is_catalog){
 			// 对目录的处理
