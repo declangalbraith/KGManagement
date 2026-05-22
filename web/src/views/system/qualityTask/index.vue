@@ -1,12 +1,18 @@
 <template>
 	<div class="kg-tasks">
 		<template v-if="currentView === 'list'">
-			<div class="kg-tasks__head">
+			<div v-if="!embedded" class="kg-tasks__head">
 				<div>
 					<h1>{{ t('message.pages.qualityTask.title') }}</h1>
 					<p>{{ t('message.pages.qualityTask.subtitle') }}</p>
 					<el-tag v-if="issueFilter" type="info" class="mt-1">{{ issueFilter }}</el-tag>
 				</div>
+				<el-button type="primary" @click="openCreate">
+					<el-icon><Plus /></el-icon>
+					{{ t('message.pages.qualityTask.create') }}
+				</el-button>
+			</div>
+			<div v-else class="kg-tasks__head kg-tasks__head--embedded">
 				<el-button type="primary" @click="openCreate">
 					<el-icon><Plus /></el-icon>
 					{{ t('message.pages.qualityTask.create') }}
@@ -110,8 +116,8 @@
 </template>
 
 <script setup lang="ts" name="kg-quality-task-index">
-import { computed, reactive, ref } from 'vue';
-import { useRoute } from 'vue-router';
+import { computed, onMounted, reactive, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { ElMessage } from 'element-plus';
 import { ArrowLeft, Document, Plus, Search } from '@element-plus/icons-vue';
@@ -120,7 +126,19 @@ import { initialTasks } from './mock';
 
 const { t } = useI18n();
 const route = useRoute();
-const issueFilter = computed(() => (route.query.issueId as string) || '');
+const router = useRouter();
+const embedded = computed(() => Boolean(route.meta.issueDetailTab));
+const issueFilter = computed(() => {
+	if (embedded.value) return (route.params.id as string) || '';
+	return (route.query.issueId as string) || '';
+});
+
+onMounted(() => {
+	const fromQuery = route.query.issueId as string | undefined;
+	if (!embedded.value && fromQuery) {
+		router.replace({ path: `/issues/${fromQuery}/tasks` });
+	}
+});
 const currentUser = '李四';
 
 const tasks = ref<QualityTask[]>([...initialTasks]);
@@ -206,6 +224,11 @@ function addComment() {
 </script>
 
 <style scoped lang="scss">
+.kg-tasks__head--embedded {
+	justify-content: flex-end;
+	margin-bottom: 16px;
+}
+
 .kg-tasks__head {
 	display: flex;
 	justify-content: space-between;

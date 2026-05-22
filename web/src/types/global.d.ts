@@ -50,6 +50,8 @@ declare type RouteItem<T = any> = {
 		loading?: boolean;
 		/** 业务路由自定义面包屑前缀（质量中心等） */
 		breadcrumbParents?: Array<{ title: string; path?: string }>;
+		/** 嵌套在问题详情 layout 下的 Tab 子页 */
+		issueDetailTab?: boolean;
 	};
 	children: T[];
 	query?: { [key: string]: T };

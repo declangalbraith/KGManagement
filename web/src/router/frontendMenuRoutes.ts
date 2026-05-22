@@ -23,7 +23,7 @@ export type BusinessRouteRaw = {
 	path: string;
 	name: string;
 	component?: string;
-	redirect?: string;
+	redirect?: string | ((to: { params: Record<string, string | string[]> }) => string);
 	meta: Record<string, unknown>;
 	children?: BusinessRouteRaw[];
 };
@@ -44,8 +44,15 @@ const noCacheMeta = {
 	isKeepAlive: false,
 };
 
-/** 质量中心业务页通用前缀：质量系统 */
-const qualityBreadcrumbRoot = [{ title: 'message.pages.bom.breadcrumbSystem', path: '/home' }];
+/** 子页面包屑：上一级列表页（与顶栏/侧栏模块名一致） */
+function listBreadcrumbParent(title: string, path: string) {
+	return [{ title, path }];
+}
+
+const documentManagementBreadcrumb = listBreadcrumbParent(
+	'message.pages.documentManagement.title',
+	'/document-management'
+);
 
 /** 侧边栏 + 一级业务路由配置 */
 export type FrontendMenuRouteItem = {
@@ -81,8 +88,67 @@ export const FRONTEND_MENU_ROUTES: FrontendMenuRouteItem[] = [
 		showInSidebar: true,
 		sidebarIcon: Tickets,
 		extraChildren: [
-			{ path: 'new', name: 'kg-issues-create', component: '/system/issues/create/index', meta: { ...noCacheMeta, title: 'message.pages.issues.create' } },
-			{ path: ':id', name: 'kg-issues-detail', component: '/system/issues/detail/index', meta: { ...noCacheMeta, title: 'message.pages.issues.detail' } },
+			{
+				path: 'new',
+				name: 'kg-issues-create',
+				component: '/system/issues/create/index',
+				meta: {
+					...noCacheMeta,
+					title: 'message.pages.issues.create',
+					breadcrumbParents: listBreadcrumbParent('message.pages.issues.title', '/issues'),
+				},
+			},
+			{
+				path: ':id',
+				name: 'kg-issues-detail',
+				component: '/system/issues/detail/layout',
+				meta: {
+					...noCacheMeta,
+					title: 'message.pages.issues.detail',
+					breadcrumbParents: listBreadcrumbParent('message.pages.issues.title', '/issues'),
+				},
+				children: [
+					{
+						path: '',
+						name: 'kg-issues-detail-overview',
+						component: '/system/issues/detail/overview',
+						meta: { ...noCacheMeta, title: 'message.pages.issues.detail' },
+					},
+					{
+						path: 'tasks',
+						name: 'kg-issues-detail-tasks',
+						component: '/system/qualityTask/index',
+						meta: {
+							...noCacheMeta,
+							title: 'message.pages.issues.subTasks',
+							issueDetailTab: true,
+							breadcrumbParents: listBreadcrumbParent('message.pages.issues.title', '/issues'),
+						},
+					},
+					{
+						path: 'rca',
+						name: 'kg-issues-detail-rca',
+						component: '/system/rca/index',
+						meta: {
+							...noCacheMeta,
+							title: 'message.pages.issues.rca',
+							issueDetailTab: true,
+							breadcrumbParents: listBreadcrumbParent('message.pages.issues.title', '/issues'),
+						},
+					},
+					{
+						path: '8d',
+						name: 'kg-issues-detail-8d',
+						component: '/system/report8d/index',
+						meta: {
+							...noCacheMeta,
+							title: 'message.pages.issues.report8d',
+							issueDetailTab: true,
+							breadcrumbParents: listBreadcrumbParent('message.pages.issues.title', '/issues'),
+						},
+					},
+				],
+			},
 		],
 	},
 	{
@@ -101,13 +167,37 @@ export const FRONTEND_MENU_ROUTES: FrontendMenuRouteItem[] = [
 					...noCacheMeta,
 					title: 'message.pages.bom.extractBreadcrumb',
 					breadcrumbParents: [
-						...qualityBreadcrumbRoot,
+						...documentManagementBreadcrumb,
 						{ title: 'message.pages.bom.breadcrumbCurrent', path: '/document-management?tab=bom' },
 					],
 				},
 			},
-			{ path: 'quality/new', name: 'kg-quality-docs-create', component: '/system/qualityDocs/create/index', meta: { ...noCacheMeta, title: 'message.pages.qualityDocs.create' } },
-			{ path: 'quality/:id', name: 'kg-quality-docs-detail', component: '/system/qualityDocs/detail/index', meta: { ...noCacheMeta, title: 'message.pages.qualityDocs.detail' } },
+			{
+				path: 'quality/new',
+				name: 'kg-quality-docs-create',
+				component: '/system/qualityDocs/create/index',
+				meta: {
+					...noCacheMeta,
+					title: 'message.pages.qualityDocs.create',
+					breadcrumbParents: [
+						...documentManagementBreadcrumb,
+						{ title: 'message.pages.documentManagement.tabQuality', path: '/document-management?tab=quality' },
+					],
+				},
+			},
+			{
+				path: 'quality/:id',
+				name: 'kg-quality-docs-detail',
+				component: '/system/qualityDocs/detail/index',
+				meta: {
+					...noCacheMeta,
+					title: 'message.pages.qualityDocs.detail',
+					breadcrumbParents: [
+						...documentManagementBreadcrumb,
+						{ title: 'message.pages.documentManagement.tabQuality', path: '/document-management?tab=quality' },
+					],
+				},
+			},
 		],
 	},
 	{
@@ -126,7 +216,16 @@ export const FRONTEND_MENU_ROUTES: FrontendMenuRouteItem[] = [
 		showInSidebar: true,
 		sidebarIcon: Reading,
 		extraChildren: [
-			{ path: ':id', name: 'kg-knowledge-detail', component: '/system/knowledge/index', meta: { ...noCacheMeta, title: 'message.pages.knowledge.detail' } },
+			{
+				path: ':id',
+				name: 'kg-knowledge-detail',
+				component: '/system/knowledge/index',
+				meta: {
+					...noCacheMeta,
+					title: 'message.pages.knowledge.detail',
+					breadcrumbParents: listBreadcrumbParent('message.pages.knowledge.title', '/knowledge'),
+				},
+			},
 		],
 	},
 	{
@@ -155,12 +254,36 @@ export const FRONTEND_MENU_ROUTES: FrontendMenuRouteItem[] = [
 	},
 	// 仅注册路由，不在侧边栏展示
 	{ path: '/tasks', name: 'kg-tasks', title: 'message.pages.qualityTask.title', pageComponent: '/system/qualityTask/index', showInSidebar: false },
-	{ path: '/rca', name: 'kg-rca', title: 'message.pages.rca.title', pageComponent: '/system/rca/index', showInSidebar: false, extraChildren: [
-		{ path: ':id', name: 'kg-rca-detail', component: '/system/rca/index', meta: { ...noCacheMeta, title: 'message.pages.rca.detail' } },
-	] },
-	{ path: '/8d-reports', name: 'kg-8d', title: 'message.pages.report8d.title', pageComponent: '/system/report8d/index', showInSidebar: false, extraChildren: [
-		{ path: ':id', name: 'kg-8d-detail', component: '/system/report8d/index', meta: { ...noCacheMeta, title: 'message.pages.report8d.detail' } },
-	] },
+	{
+		path: '/rca',
+		name: 'kg-rca',
+		title: 'message.pages.rca.title',
+		pageComponent: '/system/rca/index',
+		showInSidebar: false,
+		extraChildren: [
+			{
+				path: ':id',
+				name: 'kg-rca-detail',
+				redirect: (to) => `/issues/${to.params.id}/rca`,
+				meta: { ...hiddenMeta },
+			},
+		],
+	},
+	{
+		path: '/8d-reports',
+		name: 'kg-8d',
+		title: 'message.pages.report8d.title',
+		pageComponent: '/system/report8d/index',
+		showInSidebar: false,
+		extraChildren: [
+			{
+				path: ':id',
+				name: 'kg-8d-detail',
+				redirect: (to) => `/issues/${to.params.id}/8d`,
+				meta: { ...hiddenMeta },
+			},
+		],
+	},
 	{ path: '/ai-assistant', name: 'kg-ai', title: 'message.pages.aiAssistant.title', pageComponent: '/system/aiAssistant/index', showInSidebar: false },
 	{ path: '/notifications', name: 'kg-notifications', title: 'message.pages.notifications.title', pageComponent: '/system/notifications/index', showInSidebar: false },
 ];
@@ -179,12 +302,13 @@ const SIDEBAR_I18N_BY_PATH: Record<string, string> = {
 
 function shell(item: FrontendMenuRouteItem): BusinessRouteRaw {
 	const { path, name, title, pageComponent, extraChildren } = item;
-	const parentMeta = { ...hiddenMeta, title, breadcrumbParents: qualityBreadcrumbRoot };
+	const shellMeta = { ...hiddenMeta };
+	const indexMeta = { ...hiddenMeta, title };
 	const children: BusinessRouteRaw[] = [
-		{ path: '', name: `${name}-index`, component: pageComponent, meta: { ...parentMeta } },
+		{ path: '', name: `${name}-index`, component: pageComponent, meta: indexMeta },
 		...(extraChildren || []),
 	];
-	return { path, name, component: LAYOUT, meta: parentMeta, children };
+	return { path, name, component: LAYOUT, meta: shellMeta, children };
 }
 
 /** 由菜单列表生成业务路由（供 registerBusinessRoutes） */

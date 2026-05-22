@@ -2,7 +2,6 @@ export default {
 	message: {
 		pages: {
 			bom: {
-				breadcrumbSystem: '质量系统',
 				breadcrumbCurrent: 'BOM 管理',
 				title: 'BOM 清单管理',
 				subtitle: '管理产品物料清单及图谱抽取进度。',

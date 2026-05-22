@@ -1,15 +1,18 @@
 <template>
-	<div class="kg-rca">
-		<div class="kg-rca__head">
-			<el-button v-if="activeTool" circle @click="activeTool = null"><el-icon><ArrowLeft /></el-icon></el-button>
-			<div>
-				<h1>{{ t('message.pages.rca.title') }}</h1>
-				<p>{{ t('message.pages.rca.subtitle') }}</p>
-				<p class="kg-rca__issue">
-					{{ t('message.pages.rca.linkedIssue') }}:
-					<el-link type="primary" @click="router.push(`/issues/${issueId}`)">{{ issueId }}</el-link>
-				</p>
-			</div>
+	<div class="kg-rca" :class="{ 'is-embedded': embedded }">
+		<div v-if="!embedded || activeTool" class="kg-rca__head">
+			<template v-if="!embedded">
+				<el-button v-if="activeTool" circle @click="activeTool = null"><el-icon><ArrowLeft /></el-icon></el-button>
+				<div>
+					<h1>{{ t('message.pages.rca.title') }}</h1>
+					<p>{{ t('message.pages.rca.subtitle') }}</p>
+					<p class="kg-rca__issue">
+						{{ t('message.pages.rca.linkedIssue') }}:
+						<el-link type="primary" @click="router.push(`/issues/${issueId}`)">{{ issueId }}</el-link>
+					</p>
+				</div>
+			</template>
+			<el-button v-else-if="activeTool" circle @click="activeTool = null"><el-icon><ArrowLeft /></el-icon></el-button>
 			<div v-if="activeTool" class="kg-rca__actions">
 				<el-button :loading="saving" @click="save">{{ t('message.pages.rca.save') }}</el-button>
 				<el-button type="primary" :loading="confirming" @click="confirm">{{ t('message.pages.rca.confirm') }}</el-button>
@@ -74,6 +77,7 @@ import { defaultFishbone, fishboneCategories, rcaTools } from './mock';
 const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
+const embedded = computed(() => Boolean(route.meta.issueDetailTab));
 const issueId = computed(() => (route.params.id as string) || 'ISS-202604-001');
 
 const activeTool = ref<string | null>(null);
