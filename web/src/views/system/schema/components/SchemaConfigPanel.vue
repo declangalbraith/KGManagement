@@ -9,10 +9,22 @@
 			<div class="kg-schema-panel__body">
 				<section>
 					<h4>{{ t('message.pages.schema.basicInfo') }}</h4>
-					<label class="kg-field"><span>{{ t('message.pages.schema.communityName') }}</span><input :value="community.name" readonly /></label>
-					<label class="kg-field"><span>{{ t('message.pages.schema.nameEn') }}</span><input class="mono" :value="community.nameEn" readonly /></label>
-					<label class="kg-field"><span>{{ t('message.pages.schema.domain') }}</span><input :value="community.domain" readonly /></label>
-					<label class="kg-field"><span>{{ t('message.pages.schema.communityDesc') }}</span><textarea :value="community.desc" readonly rows="3" /></label>
+					<label class="kg-field">
+						<span>{{ t('message.pages.schema.communityName') }}</span>
+						<input :value="community.name" @input="patchCommunity({ name: inputValue($event) })" />
+					</label>
+					<label class="kg-field">
+						<span>{{ t('message.pages.schema.nameEn') }}</span>
+						<input class="mono" :value="community.nameEn" @input="patchCommunity({ nameEn: inputValue($event) })" />
+					</label>
+					<label class="kg-field">
+						<span>{{ t('message.pages.schema.domain') }}</span>
+						<input :value="community.domain" @input="patchCommunity({ domain: inputValue($event) })" />
+					</label>
+					<label class="kg-field">
+						<span>{{ t('message.pages.schema.communityDesc') }}</span>
+						<textarea :value="community.desc" rows="3" @input="patchCommunity({ desc: inputValue($event) })" />
+					</label>
 				</section>
 				<section>
 					<h4>{{ t('message.pages.schema.collab') }}</h4>
@@ -20,7 +32,6 @@
 						<div><span>{{ t('message.pages.schema.activeMembers') }}</span><strong>{{ community.members }}</strong></div>
 						<div><span>{{ t('message.pages.schema.owner') }}</span><strong class="is-primary">{{ community.owner }}</strong></div>
 					</div>
-					<button type="button" class="kg-schema-panel__btn-outline">{{ t('message.pages.schema.configPerm') }}</button>
 				</section>
 			</div>
 		</template>
@@ -34,12 +45,24 @@
 			<div class="kg-schema-panel__body">
 				<section>
 					<h4>{{ t('message.pages.schema.basicProps') }}</h4>
-					<label class="kg-field"><span>{{ t('message.pages.schema.zhName') }}</span><input :value="entity.name" readonly /></label>
+					<label class="kg-field">
+						<span>{{ t('message.pages.schema.zhName') }}</span>
+						<input :value="entity.name" @input="patchEntity({ name: inputValue($event) })" />
+					</label>
 					<div class="kg-field-row">
-						<label class="kg-field"><span>{{ t('message.pages.schema.enName') }}</span><input class="mono" :value="entity.nameEn" readonly /></label>
-						<label class="kg-field"><span>{{ t('message.pages.schema.domain') }}</span><input :value="entity.domain" readonly /></label>
+						<label class="kg-field">
+							<span>{{ t('message.pages.schema.enName') }}</span>
+							<input class="mono" :value="entity.nameEn" @input="patchEntity({ nameEn: inputValue($event) })" />
+						</label>
+						<label class="kg-field">
+							<span>{{ t('message.pages.schema.domain') }}</span>
+							<input :value="entity.domain" @input="patchEntity({ domain: inputValue($event) })" />
+						</label>
 					</div>
-					<label class="kg-field"><span>{{ t('message.pages.schema.uniqueId') }}</span><input class="mono is-disabled" :value="entity.id" disabled /></label>
+					<label class="kg-field">
+						<span>{{ t('message.pages.schema.uniqueId') }}</span>
+						<input class="mono is-disabled" :value="entity.id" disabled />
+					</label>
 				</section>
 				<hr />
 				<section>
@@ -47,40 +70,73 @@
 					<div class="kg-schema-panel__tags">
 						<span v-for="cId in entity.communities" :key="cId" class="kg-tag is-indigo">
 							{{ communityName(cId) }}
-							<el-icon><Close /></el-icon>
+							<button type="button" class="kg-tag-remove" @click="removeEntityCommunity(cId)">
+								<el-icon><Close /></el-icon>
+							</button>
 						</span>
-						<button type="button" class="kg-tag-add">+ {{ t('message.pages.schema.addMapping') }}</button>
 					</div>
+					<el-select
+						v-if="availableCommunitiesForEntity.length"
+						:key="communitySelectKey"
+						class="kg-community-select"
+						:placeholder="t('message.pages.schema.addMapping')"
+						size="small"
+						:model-value="''"
+						@change="onAddEntityCommunity"
+					>
+						<el-option
+							v-for="c in availableCommunitiesForEntity"
+							:key="c.id"
+							:label="c.name"
+							:value="c.id"
+						/>
+					</el-select>
 				</section>
 				<hr />
 				<section>
 					<div class="kg-schema-panel__sec-head">
 						<h4>{{ t('message.pages.schema.metaProps') }}</h4>
-						<button type="button" class="kg-icon-sm"><el-icon><Plus /></el-icon></button>
+						<button type="button" class="kg-icon-sm" :title="t('message.pages.schema.addProperty')" @click="emit('add-entity-property', entity.id)">
+							<el-icon><Plus /></el-icon>
+						</button>
 					</div>
 					<div v-for="(prop, i) in entity.properties" :key="i" class="kg-prop-card">
 						<div class="kg-prop-card__top">
-							<strong>{{ prop.name }}</strong>
-							<button type="button" class="kg-icon-sm is-danger"><el-icon><Delete /></el-icon></button>
+							<input
+								class="kg-prop-name-input"
+								:value="prop.name"
+								:placeholder="t('message.pages.schema.propName')"
+								@input="emit('update-entity-property', entity.id, i, { name: inputValue($event) })"
+							/>
+							<button
+								type="button"
+								class="kg-icon-sm is-danger"
+								:title="t('message.pages.schema.deleteProperty')"
+								@click="emit('remove-entity-property', entity.id, i)"
+							>
+								<el-icon><Delete /></el-icon>
+							</button>
 						</div>
-						<span class="kg-type-badge">{{ prop.type }}</span>
-						<span v-if="prop.required" class="kg-required">{{ t('message.pages.schema.required') }}</span>
-						<span v-else class="kg-optional">{{ t('message.pages.schema.optional') }}</span>
-					</div>
-				</section>
-				<hr />
-				<section>
-					<h4>{{ t('message.pages.schema.impactWarn') }}</h4>
-					<div class="kg-impact" :class="entity.impact.risk === 'High' ? 'is-high' : 'is-medium'">
-						<el-icon><WarningFilled /></el-icon>
-						<div>
-							<p class="kg-impact__title">{{ t('message.pages.schema.impactHighTitle') }}</p>
-							<p class="kg-impact__text">
-								{{ t('message.pages.schema.impactEntityText', { instances: entity.impact.instances.toLocaleString(), models: entity.impact.models }) }}
-							</p>
-							<button type="button" class="kg-impact__link">{{ t('message.pages.schema.expandImpact') }}</button>
+						<div class="kg-prop-card__row">
+							<el-select
+								:model-value="prop.type"
+								size="small"
+								class="kg-prop-type-select"
+								@change="emit('update-entity-property', entity.id, i, { type: $event as string })"
+							>
+								<el-option v-for="pt in propertyTypes" :key="pt" :label="pt" :value="pt" />
+							</el-select>
+							<label class="kg-prop-required">
+								<input
+									type="checkbox"
+									:checked="prop.required"
+									@change="emit('update-entity-property', entity.id, i, { required: ($event.target as HTMLInputElement).checked })"
+								/>
+								{{ t('message.pages.schema.required') }}
+							</label>
 						</div>
 					</div>
+					<p v-if="!entity.properties.length" class="kg-empty-hint">{{ t('message.pages.schema.noProperties') }}</p>
 				</section>
 			</div>
 		</template>
@@ -94,44 +150,69 @@
 			<div class="kg-schema-panel__body">
 				<section>
 					<h4>{{ t('message.pages.schema.connectionDef') }}</h4>
-					<div class="kg-conn-box">
-						<div class="kg-conn-box__labels"><span>{{ t('message.pages.schema.sourceType') }}</span><span>{{ t('message.pages.schema.targetType') }}</span></div>
-						<div class="kg-conn-box__nodes">
-							<span>{{ entityName(relation.sourceId) }}</span>
-							<el-icon><Right /></el-icon>
-							<span>{{ entityName(relation.targetId) }}</span>
-						</div>
-					</div>
-					<label class="kg-field"><span>{{ t('message.pages.schema.relationName') }}</span><input :value="relation.name" readonly /></label>
+					<label class="kg-field">
+						<span>{{ t('message.pages.schema.sourceType') }}</span>
+						<el-select :model-value="relation.sourceId" class="kg-full-select" @change="patchRelation({ sourceId: $event as string })">
+							<el-option v-for="e in entities" :key="e.id" :label="e.name" :value="e.id" />
+						</el-select>
+					</label>
+					<label class="kg-field">
+						<span>{{ t('message.pages.schema.targetType') }}</span>
+						<el-select :model-value="relation.targetId" class="kg-full-select" @change="patchRelation({ targetId: $event as string })">
+							<el-option v-for="e in entities" :key="e.id" :label="e.name" :value="e.id" />
+						</el-select>
+					</label>
+					<label class="kg-field">
+						<span>{{ t('message.pages.schema.relationName') }}</span>
+						<input :value="relation.name" @input="patchRelation({ name: inputValue($event) })" />
+					</label>
 					<div class="kg-field-row">
-						<label class="kg-field"><span>{{ t('message.pages.schema.semanticEn') }}</span><input class="mono is-blue" :value="relation.nameEn" readonly /></label>
-						<label class="kg-field"><span>{{ t('message.pages.schema.relationId') }}</span><input class="mono is-disabled" :value="relation.id" disabled /></label>
+						<label class="kg-field">
+							<span>{{ t('message.pages.schema.semanticEn') }}</span>
+							<input class="mono is-blue" :value="relation.nameEn" @input="patchRelation({ nameEn: inputValue($event) })" />
+						</label>
+						<label class="kg-field">
+							<span>{{ t('message.pages.schema.relationId') }}</span>
+							<input class="mono is-disabled" :value="relation.id" disabled />
+						</label>
 					</div>
 				</section>
 				<hr />
 				<section>
 					<h4>{{ t('message.pages.schema.semanticRules') }}</h4>
-					<textarea :value="relation.semantics.desc" readonly rows="2" />
-					<div class="kg-rules-grid">
-						<div><span>{{ t('message.pages.schema.multiValue') }}</span><el-icon v-if="relation.semantics.multiValue" class="is-ok"><Check /></el-icon><el-icon v-else><Close /></el-icon></div>
-						<div><span>{{ t('message.pages.schema.inverse') }}</span><el-icon v-if="relation.semantics.inverse" class="is-ok"><Check /></el-icon><el-icon v-else><Close /></el-icon></div>
-						<div><span>{{ t('message.pages.schema.requiredRule') }}</span><el-icon v-if="relation.semantics.required" class="is-ok"><Check /></el-icon><el-icon v-else><Close /></el-icon></div>
-					</div>
-				</section>
-				<hr />
-				<section>
-					<h4>{{ t('message.pages.schema.usageImpact') }}</h4>
-					<div class="kg-schema-panel__tags">
-						<span v-for="cId in relation.usage.communities" :key="cId" class="kg-tag">{{ communityName(cId) }}</span>
-					</div>
-					<div class="kg-impact" :class="relation.impact.risk === 'High' ? 'is-high' : 'is-medium'">
-						<el-icon><WarningFilled /></el-icon>
-						<div>
-							<p class="kg-impact__title">{{ t('message.pages.schema.relationImpactTitle') }}</p>
-							<p class="kg-impact__text">
-								{{ t('message.pages.schema.impactRelationText', { instances: relation.impact.instances.toLocaleString(), models: relation.impact.models }) }}
-							</p>
-						</div>
+					<label class="kg-field">
+						<span>{{ t('message.pages.schema.semanticDesc') }}</span>
+						<textarea
+							:value="relation.semantics.desc"
+							rows="3"
+							@input="patchRelationSemantics({ desc: inputValue($event) })"
+						/>
+					</label>
+					<div class="kg-rules-grid kg-rules-grid--edit">
+						<label class="kg-check-row">
+							<input
+								type="checkbox"
+								:checked="relation.semantics.multiValue"
+								@change="patchRelationSemantics({ multiValue: ($event.target as HTMLInputElement).checked })"
+							/>
+							<span>{{ t('message.pages.schema.multiValue') }}</span>
+						</label>
+						<label class="kg-check-row">
+							<input
+								type="checkbox"
+								:checked="relation.semantics.inverse"
+								@change="patchRelationSemantics({ inverse: ($event.target as HTMLInputElement).checked })"
+							/>
+							<span>{{ t('message.pages.schema.inverse') }}</span>
+						</label>
+						<label class="kg-check-row">
+							<input
+								type="checkbox"
+								:checked="relation.semantics.required"
+								@change="patchRelationSemantics({ required: ($event.target as HTMLInputElement).checked })"
+							/>
+							<span>{{ t('message.pages.schema.requiredRule') }}</span>
+						</label>
 					</div>
 				</section>
 			</div>
@@ -140,30 +221,88 @@
 </template>
 
 <script setup lang="ts" name="SchemaConfigPanel">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { Box, Check, Close, Delete, Plus, Right, Share, User, WarningFilled } from '@element-plus/icons-vue';
-import type { SelectionType } from '../types';
-import { mockCommunities, mockEntities, mockRelations } from '../mock';
+import { Box, Close, Delete, Plus, Share, User } from '@element-plus/icons-vue';
+import { PROPERTY_TYPES } from '../schemaEditing';
+import type { CommunityNode, EntityNode, RelationNode, SelectionType } from '../types';
 
-const props = defineProps<{ selection: SelectionType }>();
+const props = defineProps<{
+	selection: SelectionType;
+	communities: CommunityNode[];
+	entities: EntityNode[];
+	relations: RelationNode[];
+}>();
+
+const emit = defineEmits<{
+	'update-community': [id: string, patch: Partial<CommunityNode>];
+	'update-entity': [id: string, patch: Partial<EntityNode>];
+	'update-relation': [id: string, patch: Partial<RelationNode>];
+	'add-entity-property': [entityId: string];
+	'update-entity-property': [entityId: string, index: number, patch: Partial<EntityNode['properties'][number]>];
+	'remove-entity-property': [entityId: string, index: number];
+}>();
+
 const { t } = useI18n();
+const propertyTypes = PROPERTY_TYPES;
+const communitySelectKey = ref(0);
 
 const community = computed(() =>
-	props.selection?.type === 'Community' ? mockCommunities.find((c) => c.id === props.selection!.id) : null
+	props.selection?.type === 'Community' ? props.communities.find((c) => c.id === props.selection!.id) : null
 );
 const entity = computed(() =>
-	props.selection?.type === 'Entity' ? mockEntities.find((e) => e.id === props.selection!.id) : null
+	props.selection?.type === 'Entity' ? props.entities.find((e) => e.id === props.selection!.id) : null
 );
 const relation = computed(() =>
-	props.selection?.type === 'Relation' ? mockRelations.find((r) => r.id === props.selection!.id) : null
+	props.selection?.type === 'Relation' ? props.relations.find((r) => r.id === props.selection!.id) : null
 );
 
-function communityName(id: string) {
-	return mockCommunities.find((c) => c.id === id)?.name ?? id;
+const availableCommunitiesForEntity = computed(() => {
+	if (!entity.value) return [];
+	const linked = new Set(entity.value.communities);
+	return props.communities.filter((c) => !linked.has(c.id));
+});
+
+function inputValue(e: Event) {
+	return (e.target as HTMLInputElement).value;
 }
-function entityName(id: string) {
-	return mockEntities.find((e) => e.id === id)?.name ?? id;
+
+function communityName(id: string) {
+	return props.communities.find((c) => c.id === id)?.name ?? id;
+}
+
+function patchCommunity(patch: Partial<CommunityNode>) {
+	if (community.value) emit('update-community', community.value.id, patch);
+}
+
+function patchEntity(patch: Partial<EntityNode>) {
+	if (entity.value) emit('update-entity', entity.value.id, patch);
+}
+
+function patchRelation(patch: Partial<RelationNode>) {
+	if (relation.value) emit('update-relation', relation.value.id, patch);
+}
+
+function patchRelationSemantics(patch: Partial<RelationNode['semantics']>) {
+	if (!relation.value) return;
+	emit('update-relation', relation.value.id, {
+		semantics: { ...relation.value.semantics, ...patch },
+	});
+}
+
+function removeEntityCommunity(cId: string) {
+	if (!entity.value) return;
+	emit('update-entity', entity.value.id, {
+		communities: entity.value.communities.filter((id) => id !== cId),
+	});
+}
+
+function onAddEntityCommunity(cId: string) {
+	if (!entity.value || !cId) return;
+	emit('update-entity', entity.value.id, {
+		communities: [...entity.value.communities, cId],
+	});
+	communitySelectKey.value += 1;
 }
 </script>
 
@@ -257,6 +396,10 @@ function entityName(id: string) {
 		padding: 6px 10px;
 		font-size: 13px;
 		outline: none;
+		&:focus {
+			border-color: #3b82f6;
+			box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+		}
 		&.mono {
 			font-family: ui-monospace, monospace;
 		}
@@ -297,23 +440,11 @@ function entityName(id: string) {
 		}
 	}
 }
-.kg-schema-panel__btn-outline {
-	width: 100%;
-	height: 32px;
-	border: 1px solid #e2e8f0;
-	border-radius: 6px;
-	background: #fff;
-	font-size: 12px;
-	cursor: pointer;
-	&:hover {
-		border-color: var(--el-color-primary);
-		color: var(--el-color-primary);
-	}
-}
 .kg-schema-panel__tags {
 	display: flex;
 	flex-wrap: wrap;
 	gap: 6px;
+	margin-bottom: 8px;
 }
 .kg-tag {
 	display: inline-flex;
@@ -330,14 +461,23 @@ function entityName(id: string) {
 		border-color: #c7d2fe;
 	}
 }
-.kg-tag-add {
-	font-size: 10px;
-	padding: 2px 8px;
-	border: 1px dashed #cbd5e1;
-	border-radius: 4px;
+.kg-tag-remove {
+	display: inline-flex;
+	padding: 0;
+	border: none;
 	background: transparent;
 	cursor: pointer;
-	color: #64748b;
+	color: inherit;
+	opacity: 0.6;
+	&:hover {
+		opacity: 1;
+	}
+}
+.kg-community-select {
+	width: 100%;
+}
+.kg-full-select {
+	width: 100%;
 }
 .kg-schema-panel__sec-head {
 	display: flex;
@@ -354,123 +494,60 @@ function entityName(id: string) {
 	border-radius: 6px;
 	background: #f8fafc;
 	margin-bottom: 8px;
-	&:hover {
-		background: #f1f5f9;
-	}
 }
 .kg-prop-card__top {
 	display: flex;
 	justify-content: space-between;
-	margin-bottom: 6px;
-}
-.kg-type-badge {
-	font-size: 10px;
-	font-family: ui-monospace, monospace;
-	padding: 2px 6px;
-	border: 1px solid #e2e8f0;
-	border-radius: 4px;
-	background: #fff;
-	margin-right: 6px;
-}
-.kg-required {
-	font-size: 10px;
-	color: #dc2626;
-	font-weight: 600;
-}
-.kg-optional {
-	font-size: 10px;
-	color: #94a3b8;
-}
-.kg-impact {
-	display: flex;
-	gap: 10px;
-	padding: 12px;
-	border-radius: 8px;
-	border: 1px solid;
-	font-size: 12px;
-	&.is-high {
-		background: #fff5f5;
-		border-color: #fecaca;
-		.el-icon {
-			color: #ef4444;
-		}
-	}
-	&.is-medium {
-		background: #fffbeb;
-		border-color: #fde68a;
-		.el-icon {
-			color: #f59e0b;
-		}
-	}
-}
-.kg-impact__title {
-	margin: 0 0 6px;
-	font-weight: 600;
-	color: #0f172a;
-}
-.kg-impact__text {
-	margin: 0 0 8px;
-	color: #475569;
-	line-height: 1.5;
-}
-.kg-impact__link {
-	border: none;
-	background: none;
-	padding: 0;
-	font-size: 11px;
-	color: #2563eb;
-	cursor: pointer;
-}
-.kg-conn-box {
-	background: #f8fafc;
-	border: 1px solid #e2e8f0;
-	border-radius: 8px;
-	padding: 12px;
-	margin-bottom: 12px;
-}
-.kg-conn-box__labels {
-	display: flex;
-	justify-content: space-between;
-	font-size: 11px;
-	color: #64748b;
-	margin-bottom: 8px;
-}
-.kg-conn-box__nodes {
-	display: flex;
 	align-items: center;
 	gap: 8px;
-	span {
-		flex: 1;
-		text-align: center;
-		font-size: 11px;
-		font-weight: 600;
-		padding: 6px 8px;
-		border: 1px solid #a7f3d0;
-		background: #ecfdf5;
-		color: #047857;
-		border-radius: 4px;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
+	margin-bottom: 8px;
+}
+.kg-prop-name-input {
+	flex: 1;
+	border: 1px solid #e2e8f0;
+	border-radius: 4px;
+	padding: 4px 8px;
+	font-size: 13px;
+	font-weight: 600;
+}
+.kg-prop-card__row {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	flex-wrap: wrap;
+}
+.kg-prop-type-select {
+	width: 120px;
+}
+.kg-prop-required {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 11px;
+	color: #64748b;
+	cursor: pointer;
+}
+.kg-empty-hint {
+	font-size: 12px;
+	color: #94a3b8;
+	margin: 0;
 }
 .kg-rules-grid {
 	display: grid;
-	grid-template-columns: 1fr 1fr;
+	grid-template-columns: 1fr;
 	gap: 8px;
 	padding: 10px;
 	background: #f8fafc;
 	border: 1px solid #e2e8f0;
 	border-radius: 6px;
 	font-size: 12px;
-	div {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-	}
-	.is-ok {
-		color: #059669;
-	}
+}
+.kg-check-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	cursor: pointer;
+	color: #334155;
 }
 .kg-icon-sm {
 	width: 24px;
@@ -482,12 +559,12 @@ function entityName(id: string) {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
+	flex-shrink: 0;
+	&:hover {
+		background: rgba(0, 0, 0, 0.05);
+	}
 	&.is-danger {
 		color: #dc2626;
-		opacity: 0;
 	}
-}
-.kg-prop-card:hover .kg-icon-sm.is-danger {
-	opacity: 1;
 }
 </style>

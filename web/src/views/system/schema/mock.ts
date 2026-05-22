@@ -1,6 +1,30 @@
-import type { CommunityNode, EntityNode, RelationNode } from './types';
+import type { CommunityNode, EntityNode, RelationNode, SchemaVersionRecord } from './types';
 
 export const SCHEMA_VERSION = 'KB-ONT-V2.1.0';
+
+export const INITIAL_DRAFT_VERSION = `${SCHEMA_VERSION}-draft`;
+
+export const INITIAL_DRAFT_DESCRIPTION = '正在扩充故障预测相关属性。';
+
+/** 已发布 / 历史草稿（不含当前正在编辑的草稿） */
+export const initialVersionHistory: SchemaVersionRecord[] = [
+	{
+		id: 'hist-v210',
+		version: 'KB-ONT-V2.1.0',
+		description: '合并了设备台账实体的微调规范。',
+		savedAt: '2024-05-18 14:00',
+		author: '系统管理员',
+		status: 'published',
+	},
+	{
+		id: 'hist-v200',
+		version: 'KB-ONT-V2.0.0',
+		description: '年度大发版：重构维修工艺节点结构。',
+		savedAt: '2024-03-10 09:12',
+		author: '张工',
+		status: 'published',
+	},
+];
 
 export const mockCommunities: CommunityNode[] = [
 	{ id: 'com-1', name: '设备对象社区', nameEn: 'Device Assets', domain: '资产域', members: 12, desc: '承载所有硬件实体及其装配关系', owner: '张工 (系统工程)' },

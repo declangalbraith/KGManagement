@@ -2,18 +2,14 @@
 	<div class="kg-schema">
 		<header class="kg-schema__toolbar">
 			<div class="kg-schema__toolbar-left">
-				<div class="kg-schema__subtitle">
-					<el-icon><Share /></el-icon>
-					{{ t('message.pages.schema.workbench') }}
-				</div>
 				<h1>{{ t('message.pages.schema.title') }}</h1>
 				<span class="kg-schema__sep" />
-				<span class="kg-schema__ver">{{ t('message.pages.schema.currentVersion', { ver: SCHEMA_VERSION }) }}</span>
+				<span class="kg-schema__ver">{{ t('message.pages.schema.currentVersion', { ver: currentVersionLabel }) }}</span>
 				<span class="kg-schema__save-status">
 					<el-icon v-if="isSaved" class="is-green"><CircleCheck /></el-icon>
 					<span v-else class="kg-schema__dot" />
 					{{ isSaved ? t('message.pages.schema.autoSaved') : t('message.pages.schema.editing') }}
-					<em>| {{ t('message.pages.schema.lastUpdate') }}</em>
+					<em>| {{ lastUpdateDisplay }}</em>
 				</span>
 				<button type="button" class="kg-schema__link-btn" @click="historyOpen = true">
 					<el-icon><Clock /></el-icon>
@@ -41,7 +37,7 @@
 					<button type="button" class="kg-icon-btn"><el-icon><RefreshRight /></el-icon></button>
 				</div>
 				<div class="kg-schema__actions">
-					<button type="button" class="kg-btn-outline" @click="save">
+					<button type="button" class="kg-btn-outline" @click="openSaveDialog">
 						<el-icon><Document /></el-icon>
 						{{ t('message.pages.schema.saveDraft') }}
 					</button>
@@ -63,11 +59,11 @@
 							<el-icon><component :is="expanded.communities ? ArrowDown : ArrowRight" /></el-icon>
 							<el-icon class="is-indigo"><User /></el-icon>
 							{{ t('message.pages.schema.communities') }}
-							<span class="count">{{ mockCommunities.length }}</span>
+							<span class="count">{{ communities.length }}</span>
 						</button>
 						<div v-show="expanded.communities" class="kg-schema__section-items">
 							<button
-								v-for="c in mockCommunities"
+								v-for="c in filteredCommunities"
 								:key="c.id"
 								type="button"
 								class="kg-schema__nav-item"
@@ -83,7 +79,7 @@
 							<el-icon><component :is="expanded.entities ? ArrowDown : ArrowRight" /></el-icon>
 							<el-icon class="is-green"><Box /></el-icon>
 							{{ t('message.pages.schema.entities') }}
-							<span class="count">{{ mockEntities.length }}</span>
+							<span class="count">{{ entities.length }}</span>
 						</button>
 						<div v-show="expanded.entities" class="kg-schema__section-items">
 							<button
@@ -103,7 +99,7 @@
 							<el-icon><component :is="expanded.relations ? ArrowDown : ArrowRight" /></el-icon>
 							<el-icon class="is-blue"><Share /></el-icon>
 							{{ t('message.pages.schema.relations') }}
-							<span class="count">{{ mockRelations.length }}</span>
+							<span class="count">{{ relations.length }}</span>
 						</button>
 						<div v-show="expanded.relations" class="kg-schema__section-items">
 							<button
@@ -120,14 +116,18 @@
 					</div>
 				</div>
 				<div class="kg-schema__nav-foot">
-					<button type="button" class="kg-nav-add"><el-icon><Plus /></el-icon>{{ t('message.pages.schema.addEntity') }}</button>
-					<button type="button" class="kg-nav-add"><el-icon><Plus /></el-icon>{{ t('message.pages.schema.addRelation') }}</button>
+					<button type="button" class="kg-nav-add" @click="openAddEntity">
+						<el-icon><Plus /></el-icon>{{ t('message.pages.schema.addEntity') }}
+					</button>
+					<button type="button" class="kg-nav-add" @click="openAddRelation">
+						<el-icon><Plus /></el-icon>{{ t('message.pages.schema.addRelation') }}
+					</button>
 				</div>
 			</aside>
 
 			<!-- Canvas -->
-			<div class="kg-schema__canvas-wrap" @click="selection = null">
-				<div class="kg-schema__grid" />
+			<div class="kg-schema__canvas-wrap" @click.self="selection = null">
+				<div class="kg-schema__grid" @click="selection = null" />
 				<svg class="kg-schema__svg">
 					<defs>
 						<marker id="kg-arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
@@ -138,7 +138,8 @@
 						</marker>
 					</defs>
 					<g
-						v-for="rel in mockRelations"
+						v-for="rel in relations"
+						v-show="geom(rel).pathD"
 						:key="rel.id"
 						class="kg-schema__edge"
 						@click.stop="selection = { type: 'Relation', id: rel.id }"
@@ -175,15 +176,17 @@
 				</svg>
 
 				<div
-					v-for="ent in mockEntities"
+					v-for="ent in entities"
 					:key="ent.id"
 					class="kg-schema__node"
 					:class="{
 						'is-selected': selection?.type === 'Entity' && selection.id === ent.id,
 						'is-highlight': isEntityHighlighted(ent),
+						'is-dragging': draggingEntityId === ent.id,
 					}"
 					:style="{ left: ent.x + 'px', top: ent.y + 'px' }"
-					@click.stop="selection = { type: 'Entity', id: ent.id }"
+					@pointerdown="onEntityPointerDown($event, ent)"
+					@click.stop
 				>
 					<div class="kg-schema__node-head">
 						<el-icon><Box /></el-icon>
@@ -205,7 +208,18 @@
 				</div>
 			</div>
 
-			<SchemaConfigPanel :selection="selection" />
+			<SchemaConfigPanel
+				:selection="selection"
+				:communities="communities"
+				:entities="entities"
+				:relations="relations"
+				@update-community="updateCommunity"
+				@update-entity="updateEntity"
+				@update-relation="updateRelation"
+				@add-entity-property="addEntityProperty"
+				@update-entity-property="updateEntityProperty"
+				@remove-entity-property="removeEntityProperty"
+			/>
 		</div>
 
 		<!-- History drawer -->
@@ -218,22 +232,21 @@
 					</div>
 					<div class="kg-schema-history__body">
 						<div class="kg-hist-item is-current">
-							<strong>KB-ONT-V2.1.0-draft (当前草稿)</strong>
-							<p>更新于 今天 10:24 · 你</p>
-							<div class="kg-hist-note">正在扩充故障预测相关属性。</div>
-						</div>
-						<div class="kg-hist-item">
-							<div class="kg-hist-row">
-								<strong>KB-ONT-V2.1.0</strong>
-								<span class="kg-badge-pub">已发布</span>
+							<strong>{{ currentVersionLabel }} ({{ t('message.pages.schema.currentDraft') }})</strong>
+							<p>{{ t('message.pages.schema.historyUpdatedAt', { time: lastUpdateDisplay, author: currentAuthor }) }}</p>
+							<div class="kg-hist-note">{{ currentDraftDescription }}</div>
+							<div class="kg-hist-meta">
+								{{ t('message.pages.schema.historyMeta', { entities: entities.length, relations: relations.length }) }}
 							</div>
-							<p>2024-05-18 14:00 · 系统管理员</p>
-							<div class="kg-hist-note">合并了设备台账实体的微调规范。</div>
 						</div>
-						<div class="kg-hist-item">
-							<strong>KB-ONT-V2.0.0</strong>
-							<p>2024-03-10 09:12 · 张工</p>
-							<div class="kg-hist-note">年度大发版：重构维修工艺节点结构。</div>
+						<div v-for="item in versionHistory" :key="item.id" class="kg-hist-item">
+							<div class="kg-hist-row">
+								<strong>{{ item.version }}</strong>
+								<span v-if="item.status === 'published'" class="kg-badge-pub">{{ t('message.pages.schema.statusPublished') }}</span>
+								<span v-else class="kg-badge-draft">{{ t('message.pages.schema.statusDraft') }}</span>
+							</div>
+							<p>{{ item.savedAt }} · {{ item.author }}</p>
+							<div class="kg-hist-note">{{ item.description }}</div>
 						</div>
 					</div>
 				</aside>
@@ -253,9 +266,16 @@
 							<div class="spinner" />
 							<p>{{ t('message.pages.schema.importAnalyzing') }}</p>
 						</div>
+						<div v-else-if="importState === 'error'" class="kg-schema-import__error">
+							<el-icon><WarningFilled /></el-icon>
+							<p class="kg-schema-import__error-msg">{{ importErrorMsg }}</p>
+							<button type="button" class="kg-btn-outline" @click="importState = 'idle'">
+								{{ t('message.pages.schema.importRetry') }}
+							</button>
+						</div>
 						<div v-else class="kg-schema-import__upload">
 							<el-icon><UploadFilled /></el-icon>
-							<p>上传 .schema 建模文件</p>
+							<p>{{ t('message.pages.schema.importUploadHint') }}</p>
 							<input type="file" accept=".schema,.json,.txt" @change="onSchemaFile" />
 						</div>
 					</div>
@@ -265,11 +285,102 @@
 				</div>
 			</div>
 		</Teleport>
+
+		<!-- Add entity -->
+		<el-dialog
+			v-model="addEntityOpen"
+			:title="t('message.pages.schema.addEntityTitle')"
+			width="480px"
+			destroy-on-close
+			@closed="resetAddEntityForm"
+		>
+			<el-form label-position="top" class="kg-add-form">
+				<el-form-item :label="t('message.pages.schema.zhName')" required>
+					<el-input v-model="newEntityForm.name" :placeholder="t('message.pages.schema.newEntityNamePh')" />
+				</el-form-item>
+				<el-form-item :label="t('message.pages.schema.enName')" required>
+					<el-input v-model="newEntityForm.nameEn" class="mono" :placeholder="t('message.pages.schema.newEntityIdPh')" />
+				</el-form-item>
+				<el-form-item :label="t('message.pages.schema.domain')">
+					<el-input v-model="newEntityForm.domain" />
+				</el-form-item>
+			</el-form>
+			<p v-if="addFormError" class="kg-save-dialog__error">{{ addFormError }}</p>
+			<template #footer>
+				<el-button @click="addEntityOpen = false">{{ t('message.pages.schema.cancel') }}</el-button>
+				<el-button type="primary" @click="confirmAddEntity">{{ t('message.pages.schema.addConfirm') }}</el-button>
+			</template>
+		</el-dialog>
+
+		<!-- Add relation -->
+		<el-dialog
+			v-model="addRelationOpen"
+			:title="t('message.pages.schema.addRelationTitle')"
+			width="480px"
+			destroy-on-close
+			@closed="resetAddRelationForm"
+		>
+			<el-form label-position="top" class="kg-add-form">
+				<el-form-item :label="t('message.pages.schema.relationName')" required>
+					<el-input v-model="newRelationForm.name" />
+				</el-form-item>
+				<el-form-item :label="t('message.pages.schema.semanticEn')" required>
+					<el-input v-model="newRelationForm.nameEn" class="mono" />
+				</el-form-item>
+				<el-form-item :label="t('message.pages.schema.sourceType')" required>
+					<el-select v-model="newRelationForm.sourceId" class="kg-full-width">
+						<el-option v-for="e in entities" :key="e.id" :label="`${e.name} (${e.id})`" :value="e.id" />
+					</el-select>
+				</el-form-item>
+				<el-form-item :label="t('message.pages.schema.targetType')" required>
+					<el-select v-model="newRelationForm.targetId" class="kg-full-width">
+						<el-option v-for="e in entities" :key="e.id" :label="`${e.name} (${e.id})`" :value="e.id" />
+					</el-select>
+				</el-form-item>
+				<el-form-item :label="t('message.pages.schema.semanticDesc')">
+					<el-input v-model="newRelationForm.desc" type="textarea" :rows="2" />
+				</el-form-item>
+			</el-form>
+			<p v-if="addFormError" class="kg-save-dialog__error">{{ addFormError }}</p>
+			<template #footer>
+				<el-button @click="addRelationOpen = false">{{ t('message.pages.schema.cancel') }}</el-button>
+				<el-button type="primary" @click="confirmAddRelation">{{ t('message.pages.schema.addConfirm') }}</el-button>
+			</template>
+		</el-dialog>
+
+		<!-- Save draft dialog -->
+		<el-dialog
+			v-model="saveDialogOpen"
+			:title="t('message.pages.schema.saveDraftTitle')"
+			width="520px"
+			destroy-on-close
+			:close-on-click-modal="false"
+			@closed="resetSaveDialog"
+		>
+			<p class="kg-save-dialog__hint">{{ t('message.pages.schema.saveDraftHint') }}</p>
+			<el-input
+				v-model="saveDescription"
+				type="textarea"
+				:rows="5"
+				:placeholder="t('message.pages.schema.saveDraftPlaceholder')"
+				maxlength="500"
+				show-word-limit
+			/>
+			<p v-if="saveDescriptionError" class="kg-save-dialog__error">{{ saveDescriptionError }}</p>
+			<div class="kg-save-dialog__preview">
+				<span>{{ t('message.pages.schema.saveDraftVersion') }}</span>
+				<strong>{{ currentVersionLabel }}</strong>
+			</div>
+			<template #footer>
+				<el-button @click="saveDialogOpen = false">{{ t('message.pages.schema.cancel') }}</el-button>
+				<el-button type="primary" @click="confirmSaveDraft">{{ t('message.pages.schema.saveDraftConfirm') }}</el-button>
+			</template>
+		</el-dialog>
 	</div>
 </template>
 
 <script setup lang="ts" name="kg-schema-index">
-import { computed, reactive, ref } from 'vue';
+import { computed, onUnmounted, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ElMessage } from 'element-plus';
 import {
@@ -293,36 +404,296 @@ import {
 	Upload,
 	UploadFilled,
 	User,
+	WarningFilled,
 } from '@element-plus/icons-vue';
 import SchemaConfigPanel from './components/SchemaConfigPanel.vue';
-import type { EntityNode, RelationNode, SelectionType } from './types';
-import { SCHEMA_VERSION, defaultSchemaText, mockCommunities, mockEntities, mockRelations } from './mock';
-
+import type { CommunityNode, EntityNode, RelationNode, SchemaVersionRecord, SelectionType } from './types';
+import {
+	INITIAL_DRAFT_DESCRIPTION,
+	INITIAL_DRAFT_VERSION,
+	initialVersionHistory,
+	mockCommunities,
+	mockEntities,
+	mockRelations,
+} from './mock';
+import { getParsedSchemaStats, parseOpenSpgSchema } from './parseOpenSpgSchema';
+import { parsedSchemaToWorkbench } from './schemaToWorkbench';
+import { createEntityNode, createRelationNode } from './schemaEditing';
+import {
+	bumpDraftVersion,
+	cloneWorkbenchSnapshot,
+	createHistoryId,
+	formatSchemaSavedTime,
+} from './schemaVersion';
 const { t } = useI18n();
+
+const communities = ref<CommunityNode[]>([...mockCommunities]);
+const entities = ref<EntityNode[]>([...mockEntities]);
+const relations = ref<RelationNode[]>([...mockRelations]);
 
 const selection = ref<SelectionType>({ type: 'Entity', id: 'ent-003' });
 const searchQuery = ref('');
 const isSaved = ref(true);
 const historyOpen = ref(false);
 const importOpen = ref(false);
-const importState = ref<'idle' | 'analyzing'>('idle');
+const importState = ref<'idle' | 'analyzing' | 'error'>('idle');
+const importErrorMsg = ref('');
+
+const currentVersionLabel = ref(INITIAL_DRAFT_VERSION);
+const currentDraftDescription = ref(INITIAL_DRAFT_DESCRIPTION);
+const currentAuthor = ref('你');
+const lastSavedAt = ref<Date | null>(new Date());
+const versionHistory = ref<SchemaVersionRecord[]>([...initialVersionHistory]);
+
+const saveDialogOpen = ref(false);
+const saveDescription = ref('');
+const saveDescriptionError = ref('');
+
+const addEntityOpen = ref(false);
+const addRelationOpen = ref(false);
+const addFormError = ref('');
+const newEntityForm = reactive({ name: '', nameEn: '', domain: '' });
+const newRelationForm = reactive({
+	name: '',
+	nameEn: '',
+	sourceId: '',
+	targetId: '',
+	desc: '',
+});
+
+const lastUpdateDisplay = computed(() => {
+	if (!lastSavedAt.value) {
+		return t('message.pages.schema.lastUpdateNever');
+	}
+	return t('message.pages.schema.lastUpdateAt', { time: formatSchemaSavedTime(lastSavedAt.value) });
+});
 
 const expanded = reactive({ communities: true, entities: true, relations: true });
 
+const CANVAS_GRID = 40;
+const draggingEntityId = ref<string | null>(null);
+let activeDragCleanup: (() => void) | null = null;
+
+onUnmounted(() => {
+	activeDragCleanup?.();
+});
+
+const filteredCommunities = computed(() => {
+	const q = searchQuery.value.trim().toLowerCase();
+	if (!q) return communities.value;
+	return communities.value.filter(
+		(c) => c.name.toLowerCase().includes(q) || c.nameEn.toLowerCase().includes(q)
+	);
+});
+
 const filteredEntities = computed(() => {
 	const q = searchQuery.value.trim().toLowerCase();
-	if (!q) return mockEntities;
-	return mockEntities.filter((e) => e.name.toLowerCase().includes(q) || e.nameEn.toLowerCase().includes(q) || e.id.includes(q));
+	if (!q) return entities.value;
+	return entities.value.filter(
+		(e) => e.name.toLowerCase().includes(q) || e.nameEn.toLowerCase().includes(q) || e.id.includes(q)
+	);
 });
 
 const filteredRelations = computed(() => {
 	const q = searchQuery.value.trim().toLowerCase();
-	if (!q) return mockRelations;
-	return mockRelations.filter((r) => r.name.toLowerCase().includes(q) || r.nameEn.toLowerCase().includes(q));
+	if (!q) return relations.value;
+	return relations.value.filter(
+		(r) => r.name.toLowerCase().includes(q) || r.nameEn.toLowerCase().includes(q)
+	);
 });
 
 function communityName(id: string) {
-	return mockCommunities.find((c) => c.id === id)?.name ?? id;
+	return communities.value.find((c) => c.id === id)?.name ?? id;
+}
+
+function markDirty() {
+	isSaved.value = false;
+}
+
+function updateCommunity(id: string, patch: Partial<CommunityNode>) {
+	const idx = communities.value.findIndex((c) => c.id === id);
+	if (idx < 0) return;
+	communities.value[idx] = { ...communities.value[idx], ...patch };
+	markDirty();
+}
+
+function updateEntity(id: string, patch: Partial<EntityNode>) {
+	const idx = entities.value.findIndex((e) => e.id === id);
+	if (idx < 0) return;
+	entities.value[idx] = { ...entities.value[idx], ...patch };
+	markDirty();
+}
+
+function snapCanvasCoord(value: number): number {
+	return Math.max(0, Math.round(value / CANVAS_GRID) * CANVAS_GRID);
+}
+
+function setEntityPosition(id: string, x: number, y: number) {
+	const idx = entities.value.findIndex((e) => e.id === id);
+	if (idx < 0) return;
+	entities.value[idx].x = snapCanvasCoord(x);
+	entities.value[idx].y = snapCanvasCoord(y);
+}
+
+function onEntityPointerDown(e: PointerEvent, ent: EntityNode) {
+	if (e.button !== 0) return;
+	e.preventDefault();
+	e.stopPropagation();
+
+	selection.value = { type: 'Entity', id: ent.id };
+	draggingEntityId.value = ent.id;
+
+	const startClientX = e.clientX;
+	const startClientY = e.clientY;
+	const originX = ent.x;
+	const originY = ent.y;
+	let moved = false;
+
+	const onMove = (ev: PointerEvent) => {
+		const dx = ev.clientX - startClientX;
+		const dy = ev.clientY - startClientY;
+		if (Math.abs(dx) > 2 || Math.abs(dy) > 2) moved = true;
+		setEntityPosition(ent.id, originX + dx, originY + dy);
+	};
+
+	const onUp = () => {
+		window.removeEventListener('pointermove', onMove);
+		window.removeEventListener('pointerup', onUp);
+		window.removeEventListener('pointercancel', onUp);
+		draggingEntityId.value = null;
+		activeDragCleanup = null;
+		if (moved) markDirty();
+	};
+
+	activeDragCleanup?.();
+	activeDragCleanup = onUp;
+	window.addEventListener('pointermove', onMove);
+	window.addEventListener('pointerup', onUp);
+	window.addEventListener('pointercancel', onUp);
+}
+
+function updateRelation(id: string, patch: Partial<RelationNode>) {
+	const idx = relations.value.findIndex((r) => r.id === id);
+	if (idx < 0) return;
+	const current = relations.value[idx];
+	if (patch.semantics) {
+		patch = { ...patch, semantics: { ...current.semantics, ...patch.semantics } };
+	}
+	relations.value[idx] = { ...current, ...patch };
+	markDirty();
+}
+
+function addEntityProperty(entityId: string) {
+	const ent = entities.value.find((e) => e.id === entityId);
+	if (!ent) return;
+	ent.properties.push({ name: t('message.pages.schema.newPropertyDefault'), type: 'Text', required: false });
+	markDirty();
+}
+
+function updateEntityProperty(
+	entityId: string,
+	index: number,
+	patch: Partial<EntityNode['properties'][number]>
+) {
+	const ent = entities.value.find((e) => e.id === entityId);
+	if (!ent || !ent.properties[index]) return;
+	ent.properties[index] = { ...ent.properties[index], ...patch };
+	markDirty();
+}
+
+function removeEntityProperty(entityId: string, index: number) {
+	const ent = entities.value.find((e) => e.id === entityId);
+	if (!ent) return;
+	ent.properties.splice(index, 1);
+	markDirty();
+}
+
+function defaultEntityDomain() {
+	return entities.value[0]?.domain ?? communities.value[0]?.name ?? '默认域';
+}
+
+function openAddEntity() {
+	newEntityForm.name = '';
+	newEntityForm.nameEn = '';
+	newEntityForm.domain = defaultEntityDomain();
+	addFormError.value = '';
+	addEntityOpen.value = true;
+}
+
+function resetAddEntityForm() {
+	addFormError.value = '';
+}
+
+function confirmAddEntity() {
+	if (!newEntityForm.name.trim()) {
+		addFormError.value = t('message.pages.schema.entityNameRequired');
+		return;
+	}
+	if (!newEntityForm.nameEn.trim()) {
+		addFormError.value = t('message.pages.schema.entityIdRequired');
+		return;
+	}
+	const node = createEntityNode(newEntityForm, entities.value, communities.value);
+	entities.value.push(node);
+	selection.value = { type: 'Entity', id: node.id };
+	expanded.entities = true;
+	addEntityOpen.value = false;
+	markDirty();
+	ElMessage.success(t('message.pages.schema.entityAdded', { name: node.name }));
+}
+
+function openAddRelation() {
+	if (entities.value.length < 2) {
+		ElMessage.warning(t('message.pages.schema.needTwoEntities'));
+		return;
+	}
+	newRelationForm.name = '';
+	newRelationForm.nameEn = '';
+	newRelationForm.sourceId = entities.value[0]?.id ?? '';
+	newRelationForm.targetId = entities.value[1]?.id ?? entities.value[0]?.id ?? '';
+	newRelationForm.desc = '';
+	addFormError.value = '';
+	addRelationOpen.value = true;
+}
+
+function resetAddRelationForm() {
+	addFormError.value = '';
+}
+
+function confirmAddRelation() {
+	if (!newRelationForm.name.trim()) {
+		addFormError.value = t('message.pages.schema.relationNameRequired');
+		return;
+	}
+	if (!newRelationForm.sourceId || !newRelationForm.targetId) {
+		addFormError.value = t('message.pages.schema.relationEndpointsRequired');
+		return;
+	}
+	if (newRelationForm.sourceId === newRelationForm.targetId) {
+		addFormError.value = t('message.pages.schema.relationSameEntity');
+		return;
+	}
+	const node = createRelationNode(newRelationForm, relations.value, communities.value);
+	relations.value.push(node);
+	selection.value = { type: 'Relation', id: node.id };
+	expanded.relations = true;
+	addRelationOpen.value = false;
+	markDirty();
+	ElMessage.success(t('message.pages.schema.relationAdded', { name: node.name }));
+}
+
+function applySchemaText(text: string) {
+	const parsed = parseOpenSpgSchema(text);
+	const stats = getParsedSchemaStats(parsed);
+	const workbench = parsedSchemaToWorkbench(parsed);
+	communities.value = workbench.communities;
+	entities.value = workbench.entities;
+	relations.value = workbench.relations;
+	selection.value = workbench.entities.length
+		? { type: 'Entity', id: workbench.entities[0].id }
+		: null;
+	isSaved.value = false;
+	return stats;
 }
 
 function isEntityHighlighted(ent: EntityNode) {
@@ -330,7 +701,7 @@ function isEntityHighlighted(ent: EntityNode) {
 	if (selection.value.type === 'Entity' && selection.value.id === ent.id) return true;
 	if (selection.value.type === 'Community' && ent.communities.includes(selection.value.id)) return true;
 	if (selection.value.type === 'Relation') {
-		const rel = mockRelations.find((r) => r.id === selection.value!.id);
+		const rel = relations.value.find((r) => r.id === selection.value!.id);
 		return rel ? rel.sourceId === ent.id || rel.targetId === ent.id : false;
 	}
 	return false;
@@ -343,16 +714,19 @@ function isRelationHighlighted(rel: RelationNode) {
 		return rel.sourceId === selection.value.id || rel.targetId === selection.value.id;
 	}
 	if (selection.value.type === 'Community') {
-		const s = mockEntities.find((e) => e.id === rel.sourceId);
-		const tg = mockEntities.find((e) => e.id === rel.targetId);
+		const s = entities.value.find((e) => e.id === rel.sourceId);
+		const tg = entities.value.find((e) => e.id === rel.targetId);
 		return s?.communities.includes(selection.value.id) || tg?.communities.includes(selection.value.id);
 	}
 	return false;
 }
 
 function geom(rel: RelationNode) {
-	const source = mockEntities.find((e) => e.id === rel.sourceId)!;
-	const target = mockEntities.find((e) => e.id === rel.targetId)!;
+	const source = entities.value.find((e) => e.id === rel.sourceId);
+	const target = entities.value.find((e) => e.id === rel.targetId);
+	if (!source || !target) {
+		return { pathD: '', midX: 0, midY: 0 };
+	}
 	const isVertical = Math.abs(source.x - target.x) < 50;
 	if (isVertical) {
 		return {
@@ -383,9 +757,47 @@ function edgeMarker(rel: RelationNode) {
 	return active ? 'url(#kg-arrow-active)' : 'url(#kg-arrow)';
 }
 
-function save() {
+function openSaveDialog() {
+	saveDescription.value = currentDraftDescription.value;
+	saveDescriptionError.value = '';
+	saveDialogOpen.value = true;
+}
+
+function resetSaveDialog() {
+	saveDescriptionError.value = '';
+}
+
+function confirmSaveDraft() {
+	const description = saveDescription.value.trim();
+	if (!description) {
+		saveDescriptionError.value = t('message.pages.schema.saveDraftDescRequired');
+		return;
+	}
+
+	const now = new Date();
+	const savedVersion = currentVersionLabel.value;
+
+	versionHistory.value.unshift({
+		id: createHistoryId(),
+		version: savedVersion,
+		description,
+		savedAt: formatSchemaSavedTime(now),
+		author: currentAuthor.value,
+		status: 'draft',
+		snapshot: cloneWorkbenchSnapshot(communities.value, entities.value, relations.value),
+	});
+
+	currentVersionLabel.value = bumpDraftVersion(savedVersion);
+	currentDraftDescription.value = description;
+	lastSavedAt.value = now;
 	isSaved.value = true;
-	ElMessage.success(t('message.pages.schema.saved'));
+	saveDialogOpen.value = false;
+
+	ElMessage.success(
+		t('message.pages.schema.savedWithVersion', {
+			version: savedVersion,
+		})
+	);
 }
 
 function publish() {
@@ -395,19 +807,43 @@ function publish() {
 function openImport() {
 	importOpen.value = true;
 	importState.value = 'idle';
-	void defaultSchemaText;
+	importErrorMsg.value = '';
 }
 
 function onSchemaFile(e: Event) {
 	const input = e.target as HTMLInputElement;
-	if (!input.files?.length) return;
+	const file = input.files?.[0];
+	if (!file) return;
+
 	importState.value = 'analyzing';
-	setTimeout(() => {
-		importState.value = 'idle';
-		importOpen.value = false;
-		ElMessage.success(t('message.pages.schema.importSuccess'));
+	importErrorMsg.value = '';
+
+	const reader = new FileReader();
+	reader.onload = () => {
+		try {
+			const text = String(reader.result ?? '');
+			const stats = applySchemaText(text);
+			importOpen.value = false;
+			importState.value = 'idle';
+			ElMessage.success(
+				t('message.pages.schema.importSuccessDetail', {
+					entities: stats.entities,
+					relations: stats.relations,
+					namespace: stats.namespace,
+				})
+			);
+		} catch (err) {
+			importErrorMsg.value = err instanceof Error ? err.message : String(err);
+			importState.value = 'error';
+		}
 		input.value = '';
-	}, 1500);
+	};
+	reader.onerror = () => {
+		importErrorMsg.value = t('message.pages.schema.importReadFailed');
+		importState.value = 'error';
+		input.value = '';
+	};
+	reader.readAsText(file, 'UTF-8');
 }
 </script>
 
@@ -806,7 +1242,9 @@ function onSchemaFile(e: Event) {
 	border: 2px solid #e2e8f0;
 	border-radius: 8px;
 	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-	cursor: pointer;
+	cursor: grab;
+	user-select: none;
+	touch-action: none;
 	transition: box-shadow 0.15s, border-color 0.15s, transform 0.15s;
 	&:hover {
 		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
@@ -817,6 +1255,13 @@ function onSchemaFile(e: Event) {
 	&.is-selected {
 		border-color: #3b82f6;
 		box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15);
+		transform: scale(1.02);
+	}
+	&.is-dragging {
+		z-index: 40;
+		cursor: grabbing;
+		box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+		transition: box-shadow 0.1s;
 		transform: scale(1.02);
 	}
 }
@@ -1016,6 +1461,61 @@ function onSchemaFile(e: Event) {
 	border-radius: 4px;
 }
 
+.kg-badge-draft {
+	font-size: 10px;
+	padding: 2px 8px;
+	background: #eff6ff;
+	color: #1d4ed8;
+	border: 1px solid #bfdbfe;
+	border-radius: 4px;
+}
+
+.kg-hist-meta {
+	margin-top: 8px;
+	font-size: 11px;
+	color: #64748b;
+}
+
+.kg-save-dialog__hint {
+	margin: 0 0 12px;
+	font-size: 13px;
+	color: #64748b;
+	line-height: 1.5;
+}
+
+.kg-save-dialog__error {
+	margin: 8px 0 0;
+	font-size: 12px;
+	color: #dc2626;
+}
+
+.kg-add-form {
+	:deep(.el-form-item) {
+		margin-bottom: 14px;
+	}
+}
+.kg-full-width {
+	width: 100%;
+}
+
+.kg-save-dialog__preview {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-top: 16px;
+	padding: 10px 12px;
+	background: #f8fafc;
+	border: 1px solid #e2e8f0;
+	border-radius: 6px;
+	font-size: 12px;
+	color: #64748b;
+	strong {
+		font-family: ui-monospace, monospace;
+		color: #1e40af;
+		font-size: 13px;
+	}
+}
+
 .kg-schema-import {
 	width: 100%;
 	max-width: 640px;
@@ -1059,6 +1559,28 @@ function onSchemaFile(e: Event) {
 	to {
 		transform: rotate(360deg);
 	}
+}
+
+.kg-schema-import__error {
+	text-align: center;
+	padding: 24px;
+	.el-icon {
+		font-size: 40px;
+		color: #ef4444;
+		margin-bottom: 12px;
+	}
+}
+.kg-schema-import__error-msg {
+	font-size: 12px;
+	font-family: ui-monospace, monospace;
+	color: #b91c1c;
+	background: #fef2f2;
+	border: 1px solid #fecaca;
+	border-radius: 6px;
+	padding: 12px;
+	margin: 0 0 16px;
+	word-break: break-word;
+	text-align: left;
 }
 
 .kg-schema-import__upload {
