@@ -738,7 +738,7 @@ function geom(rel: RelationNode) {
 	return {
 		pathD: `M${source.x + 192} ${source.y + 36} L${target.x} ${target.y + 36}`,
 		midX: (source.x + 192 + target.x) / 2,
-		midY: source.y + 36,
+		midY: (source.y + 36 + target.y + 36) / 2,
 	};
 }
 
