@@ -12,7 +12,7 @@ export const bomList: BomRecord[] = [
 		uploadTime: '2024-05-18 10:30',
 		updateTime: '2024-05-18 14:20',
 		status: 'Active',
-		ingestStatus: 'Partial',
+		ingestStatus: 'Pending',
 	},
 	{
 		id: 'bom-002',
@@ -38,7 +38,7 @@ export const bomList: BomRecord[] = [
 		uploadTime: '2024-05-10 16:45',
 		updateTime: '2024-05-12 11:20',
 		status: 'Active',
-		ingestStatus: 'Complete',
+		ingestStatus: 'Extracted',
 	},
 ];
 

@@ -29,9 +29,15 @@
 			<p>{{ t('message.pages.bom.uploadHint') }}</p>
 			<button type="button" class="kg-bom__upload-btn" @click.stop="onUploadClick">
 				<el-icon class="is-excel"><Document /></el-icon>
-				{{ t('message.pages.bom.selectExcel') }}
+				{{ t('message.pages.bom.selectFile') }}
 			</button>
-			<input ref="fileInputRef" type="file" accept=".xlsx,.xls" class="kg-bom__file-input" @change="onFileChange" />
+			<input
+				ref="fileInputRef"
+				type="file"
+				accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"
+				class="kg-bom__file-input"
+				@change="onFileChange"
+			/>
 		</div>
 
 		<div class="kg-bom__controls">
@@ -50,6 +56,9 @@
 		</div>
 
 		<div class="kg-bom__table-card">
+			<div class="kg-bom__table-head">
+				<h2 class="kg-bom__list-title">{{ t('message.pages.bom.listTitle') }}</h2>
+			</div>
 			<table class="kg-bom__table">
 				<thead>
 					<tr>
@@ -57,13 +66,17 @@
 						<th>{{ t('message.pages.bom.colVersion') }}</th>
 						<th>{{ t('message.pages.bom.colDeviceLine') }}</th>
 						<th>{{ t('message.pages.bom.colUpload') }}</th>
-						<th>{{ t('message.pages.bom.colStatus') }}</th>
 						<th>{{ t('message.pages.bom.colGraph') }}</th>
 						<th class="is-right">{{ t('message.pages.bom.colActions') }}</th>
 					</tr>
 				</thead>
 				<tbody>
-					<tr v-for="bom in filtered" :key="bom.id" class="kg-bom__row">
+					<tr
+						v-for="bom in filtered"
+						:key="bom.id"
+						class="kg-bom__row"
+						@click="onView(bom.id)"
+					>
 						<td>
 							<div class="kg-bom__name">{{ bom.name }}</div>
 							<div class="kg-bom__code">{{ bom.code }}</div>
@@ -82,31 +95,27 @@
 							</div>
 						</td>
 						<td>
-							<span class="kg-badge" :class="statusClass(bom.status)">{{ statusLabel(bom.status) }}</span>
-						</td>
-						<td>
 							<span class="kg-bom__ingest" :class="ingestClass(bom.ingestStatus)">
 								<span class="kg-bom__ingest-dot" />
 								{{ ingestLabel(bom.ingestStatus) }}
 							</span>
 						</td>
-						<td class="is-right">
+						<td class="is-right" @click.stop>
 							<div class="kg-bom__actions">
 								<button
 									type="button"
-									class="kg-bom__action-primary"
-									@click="router.push(`${routePrefix}/bom/${bom.id}/extract`)"
+									class="kg-icon-btn"
+									:title="t('message.pages.bom.download')"
+									@click="onDownload(bom)"
 								>
-									<el-icon><Share /></el-icon>
-									{{ t('message.pages.bom.extractGraph') }}
+									<el-icon><Download /></el-icon>
 								</button>
-								<button type="button" class="kg-icon-btn" :title="t('message.pages.bom.view')" @click="onView(bom.id)">
-									<el-icon><View /></el-icon>
-								</button>
-								<button type="button" class="kg-icon-btn" :title="t('message.pages.bom.edit')" @click="onEdit(bom.id)">
-									<el-icon><EditPen /></el-icon>
-								</button>
-								<button type="button" class="kg-icon-btn is-danger" :title="t('message.pages.bom.delete')" @click="onDelete(bom.id)">
+								<button
+									type="button"
+									class="kg-icon-btn is-danger"
+									:title="t('message.pages.bom.delete')"
+									@click="onDelete(bom.id)"
+								>
 									<el-icon><Delete /></el-icon>
 								</button>
 							</div>
@@ -124,6 +133,21 @@ import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { ElMessage } from 'element-plus';
+import {
+	ArrowRight,
+	Coin,
+	Delete,
+	Document,
+	Download,
+	Filter,
+	Plus,
+	Search,
+	UploadFilled,
+} from '@element-plus/icons-vue';
+import type { BomRecord, IngestStatus } from './types';
+import { bomList } from './mock';
+
+const BOM_FILE_EXT = ['.xlsx', '.xls', '.csv'];
 
 const props = withDefaults(
 	defineProps<{
@@ -135,21 +159,6 @@ const props = withDefaults(
 		routePrefix: '/document-management',
 	}
 );
-import {
-	ArrowRight,
-	Coin,
-	Delete,
-	Document,
-	EditPen,
-	Filter,
-	Plus,
-	Search,
-	Share,
-	UploadFilled,
-	View,
-} from '@element-plus/icons-vue';
-import type { BomRecord, BomStatus, IngestStatus } from './types';
-import { bomList } from './mock';
 
 const { t } = useI18n();
 const router = useRouter();
@@ -169,28 +178,19 @@ const filtered = computed(() => {
 	);
 });
 
-function statusClass(status: BomStatus) {
-	if (status === 'Active') return 'kg-badge--success';
-	if (status === 'Draft') return 'kg-badge--low';
-	return 'kg-badge--archived';
-}
-
-function statusLabel(status: BomStatus) {
-	if (status === 'Active') return t('message.pages.bom.statusActive');
-	if (status === 'Draft') return t('message.pages.bom.statusDraft');
-	return t('message.pages.bom.statusArchived');
-}
-
 function ingestClass(status: IngestStatus) {
-	if (status === 'Complete') return 'is-complete';
-	if (status === 'Partial') return 'is-partial';
-	return 'is-pending';
+	return status === 'Extracted' ? 'is-extracted' : 'is-pending';
 }
 
 function ingestLabel(status: IngestStatus) {
-	if (status === 'Complete') return t('message.pages.bom.ingestComplete');
-	if (status === 'Partial') return t('message.pages.bom.ingestPartial');
-	return t('message.pages.bom.ingestPending');
+	return status === 'Extracted'
+		? t('message.pages.bom.ingestExtracted')
+		: t('message.pages.bom.ingestPending');
+}
+
+function isAllowedBomFile(file: File) {
+	const name = file.name.toLowerCase();
+	return BOM_FILE_EXT.some((ext) => name.endsWith(ext));
 }
 
 function onCreate() {
@@ -203,18 +203,33 @@ function onUploadClick() {
 
 function onFileChange(e: Event) {
 	const input = e.target as HTMLInputElement;
-	if (input.files?.length) {
-		ElMessage.success(`${t('message.pages.bom.uploadToast')}: ${input.files[0].name}`);
+	const file = input.files?.[0];
+	if (!file) return;
+	if (!isAllowedBomFile(file)) {
+		ElMessage.warning(t('message.pages.bom.uploadInvalidType'));
 		input.value = '';
+		return;
 	}
+	ElMessage.success(`${t('message.pages.bom.uploadToast')}: ${file.name}`);
+	input.value = '';
 }
 
 function onView(id: string) {
 	router.push(`${props.routePrefix}/bom/${id}/extract`);
 }
 
-function onEdit(id: string) {
-	ElMessage.info(`${t('message.pages.bom.edit')}: ${id}`);
+function onDownload(bom: BomRecord) {
+	const ext = bom.ingestStatus === 'Extracted' ? 'xlsx' : 'csv';
+	const filename = `${bom.code}.${ext}`;
+	const content = `BOM,${bom.code}\nName,${bom.name}\nVersion,${bom.version}`;
+	const blob = new Blob([content], { type: 'text/csv;charset=utf-8' });
+	const url = URL.createObjectURL(blob);
+	const link = document.createElement('a');
+	link.href = url;
+	link.download = filename;
+	link.click();
+	URL.revokeObjectURL(url);
+	ElMessage.success(t('message.pages.bom.downloadStarted', { name: bom.name }));
 }
 
 function onDelete(id: string) {
@@ -425,6 +440,17 @@ function onDelete(id: string) {
 	overflow: hidden;
 }
 
+.kg-bom__table-head {
+	padding: 16px 16px 0;
+}
+
+.kg-bom__list-title {
+	margin: 0;
+	font-size: 16px;
+	font-weight: 600;
+	color: #0f172a;
+}
+
 .kg-bom__table {
 	width: 100%;
 	border-collapse: collapse;
@@ -447,9 +473,6 @@ function onDelete(id: string) {
 	}
 	tbody tr {
 		border-bottom: 1px solid rgba(0, 0, 0, 0.04);
-		&:hover {
-			background: rgba(0, 0, 0, 0.02);
-		}
 	}
 	td {
 		padding: 12px 16px;
@@ -457,6 +480,14 @@ function onDelete(id: string) {
 		&.is-right {
 			text-align: right;
 		}
+	}
+}
+
+.kg-bom__row {
+	cursor: pointer;
+	transition: background 0.12s;
+	&:hover {
+		background: rgba(0, 0, 0, 0.02);
 	}
 }
 
@@ -489,46 +520,16 @@ function onDelete(id: string) {
 	color: #475569;
 }
 
-.kg-badge {
-	display: inline-block;
-	padding: 2px 8px;
-	font-size: 11px;
-	font-weight: 600;
-	border-radius: 4px;
-	white-space: nowrap;
-}
-.kg-badge--success {
-	background: #ecfdf5;
-	color: #047857;
-	border: 1px solid #a7f3d0;
-}
-.kg-badge--low {
-	background: #f8fafc;
-	color: #475569;
-	border: 1px solid #e2e8f0;
-}
-.kg-badge--archived {
-	background: #f1f5f9;
-	color: #64748b;
-	border: 1px solid #e2e8f0;
-}
-
 .kg-bom__ingest {
 	display: inline-flex;
 	align-items: center;
 	gap: 6px;
 	font-size: 12px;
 	font-weight: 500;
-	&.is-complete {
+	&.is-extracted {
 		color: #059669;
 		.kg-bom__ingest-dot {
 			background: #059669;
-		}
-	}
-	&.is-partial {
-		color: #2563eb;
-		.kg-bom__ingest-dot {
-			background: #2563eb;
 		}
 	}
 	&.is-pending {
@@ -556,24 +557,6 @@ function onDelete(id: string) {
 }
 .kg-bom__row:hover .kg-bom__actions {
 	opacity: 1;
-}
-
-.kg-bom__action-primary {
-	display: inline-flex;
-	align-items: center;
-	gap: 4px;
-	height: 32px;
-	padding: 0 10px;
-	border: 1px solid rgba(59, 130, 246, 0.25);
-	border-radius: 6px;
-	background: #fff;
-	color: var(--el-color-primary);
-	font-size: 12px;
-	font-weight: 500;
-	cursor: pointer;
-	&:hover {
-		background: rgba(59, 130, 246, 0.06);
-	}
 }
 
 .kg-icon-btn {
