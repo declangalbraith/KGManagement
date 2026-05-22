@@ -20,30 +20,12 @@
 import { computed } from 'vue';
 import { useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
-import {
-	Connection,
-	DataAnalysis,
-	Document,
-	Odometer,
-	Reading,
-	Setting,
-	Tickets,
-	View,
-} from '@element-plus/icons-vue';
+import { getQualitySidebarNavItems } from '/@/router/frontendMenuRoutes';
 
 const route = useRoute();
 const { t } = useI18n();
 
-const navItems = computed(() => [
-	{ path: '/home', label: t('message.pages.qualityLayout.sidebar.dashboard'), icon: Odometer },
-	{ path: '/issues', label: t('message.pages.qualityLayout.sidebar.issues'), icon: Tickets },
-	{ path: '/document-management', label: t('message.pages.qualityLayout.sidebar.documents'), icon: Document },
-	{ path: '/schema', label: t('message.pages.qualityLayout.sidebar.schema'), icon: Connection },
-	{ path: '/knowledge', label: t('message.pages.qualityLayout.sidebar.knowledge'), icon: Reading },
-	{ path: '/analytics', label: t('message.pages.qualityLayout.sidebar.analytics'), icon: DataAnalysis },
-	{ path: '/admin', label: t('message.pages.qualityLayout.sidebar.admin'), icon: Setting },
-	{ path: '/audit', label: t('message.pages.qualityLayout.sidebar.audit'), icon: View },
-]);
+const navItems = computed(() => getQualitySidebarNavItems(t));
 
 function isActive(path: string) {
 	const p = route.path;

@@ -1,6 +1,6 @@
 <template>
 	<div class="kg-root">
-		<Sidebar />
+		<!-- <Sidebar /> -->
 		<div class="kg-main">
 			<!-- <Header /> -->
 			<main class="kg-content">
