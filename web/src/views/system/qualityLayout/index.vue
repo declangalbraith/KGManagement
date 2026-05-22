@@ -2,7 +2,7 @@
 	<div class="kg-root">
 		<Sidebar />
 		<div class="kg-main">
-			<Header />
+			<!-- <Header /> -->
 			<main class="kg-content">
 				<router-view :key="route.fullPath" />
 			</main>

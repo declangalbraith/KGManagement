@@ -1,11 +1,5 @@
 <template>
 	<aside class="kg-sidebar">
-		<div class="kg-sidebar__brand">
-			<div class="kg-sidebar__brand-row">
-				<span class="kg-sidebar__logo">KNORR-BREMSE</span>
-				<span class="kg-sidebar__subtitle">Quality Center</span>
-			</div>
-		</div>
 		<nav class="kg-sidebar__nav">
 			<router-link
 				v-for="item in navItems"
