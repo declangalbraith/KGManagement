@@ -1,5 +1,11 @@
 import type { CommunityNode, EntityNode, RelationNode } from './types';
-import { layoutPosition } from './schemaToWorkbench';
+
+function layoutPosition(index: number, total: number): { x: number; y: number } {
+	const cols = Math.max(1, Math.ceil(Math.sqrt(total)));
+	const col = index % cols;
+	const row = Math.floor(index / cols);
+	return { x: 80 + col * 260, y: 80 + row * 160 };
+}
 
 const ID_SAFE_RE = /[^A-Za-z0-9_]/g;
 
