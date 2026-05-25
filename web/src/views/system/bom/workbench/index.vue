@@ -1,22 +1,9 @@
 <template>
 	<div class="kg-bom-wb">
 		<header class="kg-bom-wb__top">
-			<div class="kg-bom-wb__breadcrumb">
-				<el-icon><Coin /></el-icon>
-				<span>{{ t('message.pages.bom.breadcrumbSystem') }}</span>
-				<el-icon class="kg-bom-wb__chev"><ArrowRight /></el-icon>
-				<button type="button" class="kg-bom-wb__link" @click="router.push('/bom-management')">
-					{{ t('message.pages.bom.breadcrumbCurrent') }}
-				</button>
-				<el-icon class="kg-bom-wb__chev"><ArrowRight /></el-icon>
-				<span>{{ summary.code }} ({{ summary.version }})</span>
-				<el-icon class="kg-bom-wb__chev"><ArrowRight /></el-icon>
-				<span class="is-active">{{ t('message.pages.bom.extractBreadcrumb') }}</span>
-			</div>
-
 			<div class="kg-bom-wb__title-row">
 				<div class="kg-bom-wb__title-left">
-					<button type="button" class="kg-bom-wb__back" @click="router.push('/bom-management')">
+					<button type="button" class="kg-bom-wb__back" @click="router.push('/document-management?tab=bom')">
 						<el-icon><ArrowLeft /></el-icon>
 					</button>
 					<h1>{{ t('message.pages.bom.extractWorkbench') }}</h1>
@@ -179,15 +166,14 @@
 </template>
 
 <script setup lang="ts" name="kg-bom-workbench">
-import { computed, ref } from 'vue';
+import { computed, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { ElMessage } from 'element-plus';
+import { useBreadcrumbExtras } from '/@/stores/breadcrumbExtras';
 import {
 	ArrowLeft,
-	ArrowRight,
 	Box,
-	Coin,
 	Delete,
 	FullScreen,
 	Grid,
@@ -204,6 +190,7 @@ import { bomSummaryById, workbenchTree } from '../mock';
 const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
+const breadcrumbExtras = useBreadcrumbExtras();
 const bomId = computed(() => (route.params.id as string) || 'bom-001');
 
 const summary = computed(
@@ -216,6 +203,15 @@ const summary = computed(
 			status: 'Active' as const,
 		}
 );
+
+watch(
+	summary,
+	(s) => {
+		breadcrumbExtras.set([{ title: `${s.code} (${s.version})` }]);
+	},
+	{ immediate: true }
+);
+onUnmounted(() => breadcrumbExtras.clear());
 
 const treeRoot = workbenchTree;
 const searchQuery = ref('');
@@ -349,36 +345,6 @@ function onImport() {
 	background: #fff;
 	border-bottom: 1px solid rgba(0, 0, 0, 0.08);
 	padding: 16px 24px;
-}
-
-.kg-bom-wb__breadcrumb {
-	display: flex;
-	align-items: center;
-	gap: 6px;
-	font-size: 13px;
-	color: #64748b;
-	margin-bottom: 12px;
-	.is-active {
-		color: var(--el-color-primary);
-		font-weight: 500;
-	}
-}
-
-.kg-bom-wb__link {
-	border: none;
-	background: none;
-	padding: 0;
-	font-size: 13px;
-	color: #64748b;
-	cursor: pointer;
-	&:hover {
-		color: var(--el-color-primary);
-		text-decoration: underline;
-	}
-}
-
-.kg-bom-wb__chev {
-	font-size: 12px;
 }
 
 .kg-bom-wb__title-row {

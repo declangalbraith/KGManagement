@@ -1,11 +1,5 @@
 <template>
 	<aside class="kg-sidebar">
-		<div class="kg-sidebar__brand">
-			<div class="kg-sidebar__brand-row">
-				<span class="kg-sidebar__logo">KNORR-BREMSE</span>
-				<span class="kg-sidebar__subtitle">Quality Center</span>
-			</div>
-		</div>
 		<nav class="kg-sidebar__nav">
 			<router-link
 				v-for="item in navItems"
@@ -26,32 +20,12 @@
 import { computed } from 'vue';
 import { useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
-import {
-	Coin,
-	Connection,
-	DataAnalysis,
-	Document,
-	Odometer,
-	Reading,
-	Setting,
-	Tickets,
-	View,
-} from '@element-plus/icons-vue';
+import { getQualitySidebarNavItems } from '/@/router/frontendMenuRoutes';
 
 const route = useRoute();
 const { t } = useI18n();
 
-const navItems = computed(() => [
-	{ path: '/home', label: t('message.pages.qualityLayout.sidebar.dashboard'), icon: Odometer },
-	{ path: '/issues', label: t('message.pages.qualityLayout.sidebar.issues'), icon: Tickets },
-	{ path: '/bom-management', label: t('message.pages.qualityLayout.sidebar.bom'), icon: Coin },
-	{ path: '/schema', label: t('message.pages.qualityLayout.sidebar.schema'), icon: Connection },
-	{ path: '/quality-docs', label: t('message.pages.qualityLayout.sidebar.qualityDocs'), icon: Document },
-	{ path: '/knowledge', label: t('message.pages.qualityLayout.sidebar.knowledge'), icon: Reading },
-	{ path: '/analytics', label: t('message.pages.qualityLayout.sidebar.analytics'), icon: DataAnalysis },
-	{ path: '/admin', label: t('message.pages.qualityLayout.sidebar.admin'), icon: Setting },
-	{ path: '/audit', label: t('message.pages.qualityLayout.sidebar.audit'), icon: View },
-]);
+const navItems = computed(() => getQualitySidebarNavItems(t));
 
 function isActive(path: string) {
 	const p = route.path;

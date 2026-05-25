@@ -4,7 +4,7 @@
 		<el-container class="layout-mian-height-50">
 			<LayoutAside />
 			<div class="flex-center layout-backtop">
-				<LayoutTagsView v-if="isTagsview" />
+				<!-- <LayoutTagsView v-if="isTagsview" /> -->
 				<LayoutMain ref="layoutMainRef" />
 			</div>
 		</el-container>

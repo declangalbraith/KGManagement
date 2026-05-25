@@ -58,7 +58,7 @@ function saveDraft() {
 function submit() {
 	if (!form.name) return ElMessage.warning('请填写文档名称');
 	ElMessage.success(t('message.pages.qualityDocs.submitted'));
-	router.push('/quality-docs');
+	router.push('/document-management?tab=quality');
 }
 </script>
 

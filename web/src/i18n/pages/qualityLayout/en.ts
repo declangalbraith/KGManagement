@@ -5,9 +5,8 @@ export default {
 				sidebar: {
 					dashboard: 'Workbench',
 					issues: 'Issues',
-					bom: 'BOM',
+					documents: 'Documents',
 					schema: 'Schema Design',
-					qualityDocs: 'Quality Docs',
 					knowledge: 'Knowledge',
 					analytics: 'Analytics',
 					admin: 'Admin',
