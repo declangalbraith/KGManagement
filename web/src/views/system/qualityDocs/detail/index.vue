@@ -8,7 +8,7 @@
 				<div>
 					<div class="kg-doc-detail__title-row">
 						<h1>{{ doc.name }}</h1>
-						<span class="kg-status-tag" :class="statusClass(doc.status)">{{ statusLabel(doc.status) }}</span>
+						<span class="kg-status-tag" :class="statusClass(doc)">{{ statusLabel(doc) }}</span>
 					</div>
 					<div class="kg-doc-detail__meta">
 						<span class="kg-meta-id">{{ doc.uniqueId }}</span>
@@ -79,30 +79,6 @@
 						</div>
 					</div>
 				</section>
-
-				<section class="kg-card">
-					<div class="kg-card__row-head">
-						<h2><el-icon><Upload /></el-icon>{{ t('message.pages.qualityDocs.attachments') }}</h2>
-						<button type="button" class="kg-btn-sm" @click="onUpload">
-							{{ t('message.pages.qualityDocs.uploadAttachment') }}
-						</button>
-						<input ref="fileRef" type="file" class="kg-file-hidden" @change="onFileChange" />
-					</div>
-					<ul v-if="doc.attachments?.length" class="kg-att-list">
-						<li v-for="att in doc.attachments" :key="att.id" class="kg-att-item" @click="openPreview(att.name)">
-							<el-icon class="kg-att-icon"><Document /></el-icon>
-							<div>
-								<div class="kg-att-name">{{ att.name }}</div>
-								<div class="kg-att-meta">{{ (att.size / 1024).toFixed(0) }} KB · {{ att.uploadDate }}</div>
-							</div>
-						</li>
-					</ul>
-					<div v-else class="kg-att-empty" @click="onUpload">
-						<el-icon><UploadFilled /></el-icon>
-						<p>{{ t('message.pages.qualityDocs.noAttachments') }}</p>
-						<span>{{ t('message.pages.qualityDocs.clickUpload') }}</span>
-					</div>
-				</section>
 			</div>
 
 			<aside class="kg-doc-detail__side">
@@ -117,7 +93,7 @@
 							:key="item.id"
 							type="button"
 							class="kg-related-item"
-							@click="router.push(`/knowledge/${item.id}`)"
+							@click="goKnowledge(item)"
 						>
 							<span class="kg-related-title">{{ item.title }}</span>
 							<div class="kg-related-foot">
@@ -170,18 +146,16 @@ import {
 	EditPen,
 	MagicStick,
 	Reading,
-	Upload,
-	UploadFilled,
 	View,
 } from '@element-plus/icons-vue';
 import DocumentViewer from '../components/DocumentViewer.vue';
-import type { DocStatus, QualityDocItem } from '../types';
+import type { QualityDocItem, RelatedKnowledge } from '../types';
 import { docById, mockQualityDocs } from '../mock';
+import { getDocDisplayStatus } from '../utils';
 
 const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
-const fileRef = ref<HTMLInputElement | null>(null);
 const viewerOpen = ref(false);
 const previewTitle = ref('');
 
@@ -202,18 +176,28 @@ function openPreview(attachmentName?: string) {
 	viewerOpen.value = true;
 }
 
-function statusClass(status: DocStatus) {
+function statusClass(docItem: QualityDocItem) {
+	const status = getDocDisplayStatus(docItem);
 	if (status === 'APPROVED') return 'is-approved';
 	if (status === 'PENDING') return 'is-pending';
 	if (status === 'REJECTED') return 'is-rejected';
+	if (status === 'ARCHIVED') return 'is-archived';
+	if (status === 'DELETED') return 'is-deleted';
 	return 'is-draft';
 }
 
-function statusLabel(status: DocStatus) {
+function statusLabel(docItem: QualityDocItem) {
+	const status = getDocDisplayStatus(docItem);
 	if (status === 'APPROVED') return t('message.pages.qualityDocs.statusApproved');
 	if (status === 'PENDING') return t('message.pages.qualityDocs.statusPending');
 	if (status === 'REJECTED') return t('message.pages.qualityDocs.statusRejected');
+	if (status === 'ARCHIVED') return t('message.pages.qualityDocs.statusArchived');
+	if (status === 'DELETED') return t('message.pages.qualityDocs.statusDeleted');
 	return t('message.pages.qualityDocs.statusDraft');
+}
+
+function goKnowledge(item: RelatedKnowledge) {
+	router.push({ path: `/knowledge/${item.id}`, query: { title: item.title } });
 }
 
 function logText(action: string) {
@@ -223,6 +207,7 @@ function logText(action: string) {
 		APPROVE: t('message.pages.qualityDocs.logApprove'),
 		REJECT: t('message.pages.qualityDocs.logReject'),
 		UPDATE: t('message.pages.qualityDocs.logUpdate'),
+		UPLOAD: t('message.pages.qualityDocs.logUpload'),
 	};
 	return map[action] ?? action;
 }
@@ -238,27 +223,6 @@ function submitReview() {
 	ElMessage.success(t('message.pages.qualityDocs.submitSuccess'));
 }
 
-function onUpload() {
-	fileRef.value?.click();
-}
-
-function onFileChange(e: Event) {
-	const input = e.target as HTMLInputElement;
-	const file = input.files?.[0];
-	if (!file || !doc.value) return;
-	const att = {
-		id: `att-${Date.now()}`,
-		name: file.name,
-		size: file.size,
-		uploadDate: new Date().toISOString().split('T')[0],
-	};
-	doc.value = {
-		...doc.value,
-		attachments: [...(doc.value.attachments ?? []), att],
-	};
-	ElMessage.success(t('message.pages.qualityDocs.uploadSuccess'));
-	input.value = '';
-}
 </script>
 
 <style scoped lang="scss">
@@ -338,6 +302,16 @@ function onFileChange(e: Event) {
 		background: #fef2f2;
 		color: #b91c1c;
 		border-color: #fecaca;
+	}
+	&.is-archived {
+		background: #f8fafc;
+		color: #475569;
+		border-color: #e2e8f0;
+	}
+	&.is-deleted {
+		background: #f1f5f9;
+		color: #64748b;
+		border-color: #cbd5e1;
 	}
 }
 
@@ -456,34 +430,6 @@ function onFileChange(e: Event) {
 	}
 }
 
-.kg-card__row-head {
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-	margin-bottom: 16px;
-	h2 {
-		margin: 0;
-	}
-}
-
-.kg-btn-sm {
-	height: 32px;
-	padding: 0 12px;
-	border: 1px solid #e2e8f0;
-	border-radius: 6px;
-	background: #fff;
-	font-size: 12px;
-	cursor: pointer;
-	&:hover {
-		border-color: var(--el-color-primary);
-		color: var(--el-color-primary);
-	}
-}
-
-.kg-file-hidden {
-	display: none;
-}
-
 .kg-info-grid {
 	display: grid;
 	grid-template-columns: 1fr 1fr;
@@ -529,73 +475,6 @@ function onFileChange(e: Event) {
 	font-size: 14px;
 	color: #475569;
 	line-height: 1.6;
-}
-
-.kg-att-list {
-	list-style: none;
-	margin: 0;
-	padding: 0;
-	display: grid;
-	grid-template-columns: 1fr 1fr;
-	gap: 12px;
-}
-
-.kg-att-item {
-	display: flex;
-	gap: 12px;
-	padding: 14px;
-	border: 1px solid #e2e8f0;
-	border-radius: 10px;
-	cursor: pointer;
-	transition: border-color 0.15s, box-shadow 0.15s;
-	&:hover {
-		border-color: rgba(59, 130, 246, 0.35);
-		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
-	}
-}
-
-.kg-att-icon {
-	font-size: 32px;
-	color: #3b82f6;
-	background: #eff6ff;
-	padding: 8px;
-	border-radius: 8px;
-}
-
-.kg-att-name {
-	font-size: 13px;
-	font-weight: 500;
-	margin-bottom: 4px;
-}
-
-.kg-att-meta {
-	font-size: 11px;
-	color: #64748b;
-}
-
-.kg-att-empty {
-	border: 2px dashed #e2e8f0;
-	border-radius: 12px;
-	padding: 40px 20px;
-	text-align: center;
-	color: #94a3b8;
-	cursor: pointer;
-	.el-icon {
-		font-size: 32px;
-		margin-bottom: 8px;
-	}
-	p {
-		margin: 0 0 4px;
-		font-size: 14px;
-	}
-	span {
-		font-size: 12px;
-		color: var(--el-color-primary);
-	}
-	&:hover {
-		border-color: #cbd5e1;
-		background: rgba(0, 0, 0, 0.02);
-	}
 }
 
 .kg-related-list {
@@ -729,9 +608,6 @@ function onFileChange(e: Event) {
 
 @media (max-width: 1000px) {
 	.kg-doc-detail__grid {
-		grid-template-columns: 1fr;
-	}
-	.kg-att-list {
 		grid-template-columns: 1fr;
 	}
 }

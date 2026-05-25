@@ -223,7 +223,7 @@ export const FRONTEND_MENU_ROUTES: FrontendMenuRouteItem[] = [
 				meta: {
 					...noCacheMeta,
 					title: 'message.pages.knowledge.detail',
-					breadcrumbParents: listBreadcrumbParent('message.pages.knowledge.title', '/knowledge'),
+					breadcrumbParents: listBreadcrumbParent('message.pages.qualityLayout.sidebar.knowledge', '/knowledge'),
 				},
 			},
 		],

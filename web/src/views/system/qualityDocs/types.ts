@@ -33,6 +33,7 @@ export interface QualityDocItem {
 	description?: string;
 	projectName?: string;
 	owner: string;
+	approver?: string;
 	department: string;
 	version: string;
 	status: DocStatus;

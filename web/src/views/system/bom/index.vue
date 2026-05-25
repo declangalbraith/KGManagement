@@ -2,19 +2,16 @@
 	<div class="kg-bom" :class="{ 'is-embedded': embedded }">
 		<div v-if="!embedded" class="kg-bom__head">
 			<h1 class="kg-bom__title">{{ t('message.pages.bom.title') }}</h1>
-			<button type="button" class="kg-bom__btn-create" @click="onCreate">
-				<el-icon><Plus /></el-icon>
-				{{ t('message.pages.bom.create') }}
-			</button>
-		</div>
-		<div v-else class="kg-bom__head kg-bom__head--embedded">
-			<button type="button" class="kg-bom__btn-create" @click="onCreate">
-				<el-icon><Plus /></el-icon>
-				{{ t('message.pages.bom.create') }}
-			</button>
 		</div>
 
-		<div class="kg-bom__upload" @click="onUploadClick">
+		<div
+			class="kg-bom__upload"
+			:class="{ 'is-dragover': isDragOver }"
+			@click="onUploadClick"
+			@dragover.prevent="onDragOver"
+			@dragleave.prevent="onDragLeave"
+			@drop.prevent="onDrop"
+		>
 			<div class="kg-bom__upload-icon">
 				<el-icon><UploadFilled /></el-icon>
 			</div>
@@ -126,15 +123,7 @@ import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { ElMessage } from 'element-plus';
-import {
-	Delete,
-	Document,
-	Download,
-	Filter,
-	Plus,
-	Search,
-	UploadFilled,
-} from '@element-plus/icons-vue';
+import { Delete, Document, Download, Filter, Search, UploadFilled } from '@element-plus/icons-vue';
 import type { BomRecord, IngestStatus } from './types';
 import { bomList } from './mock';
 
@@ -155,6 +144,7 @@ const { t } = useI18n();
 const router = useRouter();
 const searchQuery = ref('');
 const fileInputRef = ref<HTMLInputElement | null>(null);
+const isDragOver = ref(false);
 const list = ref<BomRecord[]>([...bomList]);
 
 const filtered = computed(() => {
@@ -184,25 +174,56 @@ function isAllowedBomFile(file: File) {
 	return BOM_FILE_EXT.some((ext) => name.endsWith(ext));
 }
 
-function onCreate() {
-	ElMessage.info(t('message.pages.bom.createToast'));
-}
-
 function onUploadClick() {
 	fileInputRef.value?.click();
+}
+
+function onDragOver() {
+	isDragOver.value = true;
+}
+
+function onDragLeave() {
+	isDragOver.value = false;
+}
+
+function onDrop(e: DragEvent) {
+	isDragOver.value = false;
+	const file = e.dataTransfer?.files?.[0];
+	if (file) handleBomFile(file);
 }
 
 function onFileChange(e: Event) {
 	const input = e.target as HTMLInputElement;
 	const file = input.files?.[0];
 	if (!file) return;
+	handleBomFile(file);
+	input.value = '';
+}
+
+function handleBomFile(file: File) {
 	if (!isAllowedBomFile(file)) {
 		ElMessage.warning(t('message.pages.bom.uploadInvalidType'));
-		input.value = '';
 		return;
 	}
+	const stem = file.name.replace(/\.[^.]+$/, '');
+	const code = `BOM-UP-${Date.now().toString(36).toUpperCase()}`;
+	list.value = [
+		{
+			id: `bom-${Date.now()}`,
+			name: stem || file.name,
+			code,
+			version: 'V0.1',
+			deviceModel: '—',
+			productLine: '—',
+			uploader: '当前用户',
+			uploadTime: new Date().toLocaleString('zh-CN', { hour12: false }),
+			updateTime: new Date().toISOString().slice(0, 10),
+			status: 'Draft',
+			ingestStatus: 'Pending',
+		},
+		...list.value,
+	];
 	ElMessage.success(`${t('message.pages.bom.uploadToast')}: ${file.name}`);
-	input.value = '';
 }
 
 function onView(id: string) {
@@ -242,11 +263,6 @@ function onDelete(id: string) {
 	}
 }
 
-.kg-bom__head--embedded {
-	justify-content: flex-end;
-	margin-bottom: 16px;
-}
-
 .kg-bom__head {
 	display: flex;
 	align-items: center;
@@ -263,25 +279,6 @@ function onDelete(id: string) {
 	color: #0f172a;
 }
 
-.kg-bom__btn-create {
-	display: inline-flex;
-	align-items: center;
-	gap: 6px;
-	height: 40px;
-	padding: 0 18px;
-	border: none;
-	border-radius: 6px;
-	background: #1a1a1a;
-	color: #fff;
-	font-size: 14px;
-	font-weight: 500;
-	cursor: pointer;
-	box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-	&:hover {
-		background: #333;
-	}
-}
-
 .kg-bom__upload {
 	position: relative;
 	margin-bottom: 24px;
@@ -292,9 +289,14 @@ function onDelete(id: string) {
 	text-align: center;
 	cursor: pointer;
 	transition: background 0.2s, border-color 0.2s;
-	&:hover {
+	&:hover,
+	&.is-dragover {
 		background: rgba(0, 0, 0, 0.04);
 		border-color: #cbd5e1;
+	}
+	&.is-dragover {
+		border-color: var(--el-color-primary);
+		background: var(--el-color-primary-light-9);
 	}
 	h3 {
 		margin: 0 0 6px;

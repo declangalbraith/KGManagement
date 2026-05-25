@@ -62,12 +62,23 @@ function buildBusinessBreadcrumb(
 		});
 	}
 	extras.forEach((item) => pushNavigateTarget(list, item.path ?? '', { title: item.title }));
+	const leafTitle = resolveBusinessLeafTitle(route);
 	pushNavigateTarget(list, route.fullPath, {
-		title: (route.meta?.title as string) || '',
+		title: leafTitle,
 		tagsViewName: setTagsViewNameI18n(route),
 		icon: route.meta?.icon as string | undefined,
 	});
 	return list;
+}
+
+/** 业务路由末级面包屑标题（支持 query 覆盖，如知识库详情条目标题） */
+function resolveBusinessLeafTitle(route: RouteLocationNormalizedLoaded): string {
+	const name = String(route.name ?? '');
+	if (name === 'kg-knowledge-detail') {
+		const fromQuery = route.query.title;
+		if (typeof fromQuery === 'string' && fromQuery.trim()) return fromQuery.trim();
+	}
+	return (route.meta?.title as string) || '';
 }
 
 /** 平台后端菜单路由：沿用 routesList 按 path 分段匹配 */

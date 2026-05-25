@@ -13,9 +13,12 @@
 					<el-col :span="12">
 						<el-form-item label="文件类型" required>
 							<el-select v-model="form.fileType" class="w100">
-								<el-option label="PFMEA" value="PFMEA" />
-								<el-option label="SOP" value="SOP" />
-								<el-option label="巡检记录" value="巡检记录" />
+								<el-option
+									v-for="opt in QUALITY_DOC_FILE_TYPES"
+									:key="opt"
+									:label="opt"
+									:value="opt"
+								/>
 							</el-select>
 						</el-form-item>
 					</el-col>
@@ -47,10 +50,11 @@ import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { ElMessage } from 'element-plus';
 import { ArrowLeft, UploadFilled } from '@element-plus/icons-vue';
+import { QUALITY_DOC_FILE_TYPES } from '../constants';
 
 const { t } = useI18n();
 const router = useRouter();
-const form = reactive({ name: '', fileType: 'PFMEA', docNumber: '', description: '' });
+const form = reactive({ name: '', fileType: QUALITY_DOC_FILE_TYPES[0], docNumber: '', description: '' });
 
 function saveDraft() {
 	ElMessage.success(t('message.pages.qualityDocs.saved'));
