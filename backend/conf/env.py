@@ -42,6 +42,11 @@ COLUMN_EXCLUDE_APPS = []
 # ================================================= #
 KAG_PROJECT_ROOT = os.path.join(BASE_DIR, "kag", "kag_projects")
 
+# ================================================= #
+# *************** Schema 初始文件  *************** #
+# ================================================= #
+SCHEMA_INIT_FILE = os.path.join(KAG_PROJECT_ROOT, "KGtestV2", "schema", "KGtestV2.schema")
+
 # LLM SiliconFlow API
 KAG_LLM_OPENIE_BASE_URL = "https://api.siliconflow.cn/v1"
 KAG_LLM_OPENIE_API_KEY = "sk-yrwobvrcxtpyxaqecbqqkqoacxcxpexeiteyywznyiebavng"
