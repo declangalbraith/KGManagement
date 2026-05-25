@@ -1,5 +1,5 @@
 export type BomStatus = 'Active' | 'Draft' | 'Archived';
-export type IngestStatus = 'Pending' | 'Partial' | 'Complete';
+export type IngestStatus = 'Pending' | 'Extracted';
 export type BomNodeStatus = 'Ingested' | 'Pending';
 
 export interface BomRecord {

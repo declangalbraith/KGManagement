@@ -100,7 +100,7 @@
 								</router-link>
 								<div v-if="idx < latestQualityDocs.length - 1" class="kg-kb__latest-divider" />
 							</template>
-							<button type="button" class="kg-kb__enter-docs" @click="router.push('/quality-docs')">
+							<button type="button" class="kg-kb__enter-docs" @click="router.push('/document-management?tab=quality')">
 								{{ t('message.pages.knowledge.enterDocs') }}
 								<el-icon><ArrowRight /></el-icon>
 							</button>

@@ -1,14 +1,16 @@
 <template>
-	<div class="kg-8d">
+	<div class="kg-8d" :class="{ 'is-embedded': embedded }">
 		<div class="kg-8d__head">
-			<el-button circle @click="router.back()"><el-icon><ArrowLeft /></el-icon></el-button>
-			<div>
-				<h1>{{ t('message.pages.report8d.title') }}</h1>
-				<p>
-					{{ t('message.pages.report8d.linkedIssue') }}:
-					<el-link type="primary" @click="router.push(`/issues/${issueId}`)">{{ issueId }}</el-link>
-				</p>
-			</div>
+			<template v-if="!embedded">
+				<el-button circle @click="router.back()"><el-icon><ArrowLeft /></el-icon></el-button>
+				<div>
+					<h1>{{ t('message.pages.report8d.title') }}</h1>
+					<p>
+						{{ t('message.pages.report8d.linkedIssue') }}:
+						<el-link type="primary" @click="router.push(`/issues/${issueId}`)">{{ issueId }}</el-link>
+					</p>
+				</div>
+			</template>
 			<div class="kg-8d__actions">
 				<el-button @click="syncFromIssue">{{ t('message.pages.report8d.syncFromIssue') }}</el-button>
 				<el-button @click="fillAiMock">{{ t('message.pages.report8d.aiDraft') }}</el-button>
@@ -38,6 +40,7 @@ import type { Report8DState } from './types';
 const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
+const embedded = computed(() => Boolean(route.meta.issueDetailTab));
 const issueId = computed(() => (route.params.id as string) || 'ISS-202604-001');
 const reportData = reactive<Report8DState>({ ...defaultReport8D });
 const saving = ref(false);
@@ -76,6 +79,10 @@ function fillAiMock() {
 </script>
 
 <style scoped lang="scss">
+.kg-8d.is-embedded .kg-8d__head {
+	justify-content: flex-end;
+}
+
 .kg-8d__head {
 	display: flex;
 	gap: 12px;

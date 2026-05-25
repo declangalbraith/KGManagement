@@ -600,7 +600,7 @@ function onRelatedClick(node: GraphNode) {
 
 function goQualityDoc(id: string) {
 	const slug = id.toLowerCase().replace('doc-', 'doc-');
-	router.push(`/quality-docs/${slug}`);
+	router.push(`/document-management/quality/${slug}`);
 }
 
 function onViewReport() {

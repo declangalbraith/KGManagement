@@ -1,8 +1,8 @@
 <template>
 	<div class="kg-root">
-		<Sidebar />
+		<!-- <Sidebar /> -->
 		<div class="kg-main">
-			<Header />
+			<!-- <Header /> -->
 			<main class="kg-content">
 				<router-view :key="route.fullPath" />
 			</main>
