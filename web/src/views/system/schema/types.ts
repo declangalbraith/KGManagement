@@ -32,3 +32,21 @@ export interface RelationNode {
 	usage: { communities: string[]; instanceCount: number };
 	impact: { instances: number; models: number; risk: 'Low' | 'Medium' | 'High' };
 }
+
+export interface SchemaWorkbenchSnapshot {
+	communities: CommunityNode[];
+	entities: EntityNode[];
+	relations: RelationNode[];
+}
+
+export type SchemaVersionStatus = 'draft' | 'published';
+
+export interface SchemaVersionRecord {
+	id: string;
+	version: string;
+	description: string;
+	savedAt: string;
+	author: string;
+	status: SchemaVersionStatus;
+	snapshot?: SchemaWorkbenchSnapshot;
+}
