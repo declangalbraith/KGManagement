@@ -193,15 +193,14 @@ import {
 	Share,
 	VideoPlay,
 } from '@element-plus/icons-vue';
-import { graphTypeConfig } from '/@/views/system/common/graph/mock';
-import type { GraphNodeType } from '/@/views/system/common/graph/types';
+import { graphTypeConfig, type BuilderGraphNodeType } from '/@/views/system/common/graph/mock';
 
 type ExtractionStatus = 'pending' | 'approved' | 'rejected';
 
 interface BuilderNode {
 	id: string;
 	label: string;
-	type: GraphNodeType;
+	type: BuilderGraphNodeType;
 	status: ExtractionStatus;
 	x?: number;
 	y?: number;
@@ -238,7 +237,7 @@ const canSave = computed(
 	() => hasExtracted.value && nodes.value.some((n) => n.status === 'approved')
 );
 
-function typeCfg(type: GraphNodeType) {
+function typeCfg(type: BuilderGraphNodeType) {
 	return graphTypeConfig[type];
 }
 

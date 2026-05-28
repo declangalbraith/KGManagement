@@ -16,6 +16,7 @@ urlpatterns = [
     })),
     path("build/", views.BuildView.as_view(), name="kag-build"),
     path("qa/", views.QAView.as_view(), name="kag-qa"),
+    path("graph/subgraph/", views.GraphSubgraphView.as_view(), name="kag-graph-subgraph"),
     path("documents/", views.KAGDocumentViewSet.as_view({
         "get": "list", "post": "create",
     })),

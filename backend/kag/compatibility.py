@@ -1,9 +1,12 @@
 import importlib
 import importlib.metadata
+import logging
 from pathlib import Path
 
 import requests
 import yaml
+
+logger = logging.getLogger(__name__)
 
 
 class CompatibilityError(RuntimeError):
@@ -53,6 +56,15 @@ def get_local_runtime_info():
         capabilities.add("graph_client")
     except Exception:
         pass
+
+    if "graph_client" not in capabilities:
+        for module_name in ("knext.builder.client", "knext.graph_algo.client"):
+            try:
+                importlib.import_module(module_name)
+                capabilities.add("graph_client")
+                break
+            except Exception:
+                pass
 
     try:
         import knext.reasoner.rest.models.task_stream_request  # noqa: F401
@@ -128,23 +140,32 @@ def check_runtime_compatibility(config_path, fail_fast=None):
 
     expected_runtime = compatibility.get("expected_runtime", {})
     expected_version = expected_runtime.get("openspg_kag_version")
+    version_mismatch = None
     if expected_version:
         actual_version = (
             local_info["openspg_kag_dist_version"] or local_info["kag_version"] or ""
         )
         if actual_version != expected_version:
-            raise CompatibilityError(
+            version_mismatch = (
                 "Local openspg-kag version mismatch. "
                 f"Expected {expected_version}, got {actual_version or 'unknown'}."
+            )
+            if fail_fast:
+                raise CompatibilityError(version_mismatch)
+            logger.warning(
+                "%s (fail_fast=false, continuing)", version_mismatch
             )
 
     missing = sorted(required_capabilities - local_info["capabilities"])
     if missing:
-        raise CompatibilityError(
+        message = (
             "Local knext runtime is incompatible with the configured project. "
             f"Missing capabilities: {', '.join(missing)}. "
             f"Local knext path: {local_info['knext_path']}"
         )
+        if fail_fast:
+            raise CompatibilityError(message)
+        logger.warning("%s (fail_fast=false, continuing)", message)
 
     return {
         "config_path": str(Path(config_path).resolve()),
@@ -152,4 +173,6 @@ def check_runtime_compatibility(config_path, fail_fast=None):
         "remote": remote_info,
         "remote_error": str(remote_error) if remote_error else None,
         "required_capabilities": sorted(required_capabilities),
+        "missing_capabilities": missing,
+        "version_mismatch": version_mismatch,
     }

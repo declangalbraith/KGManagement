@@ -9,6 +9,13 @@ from rest_framework.views import APIView
 
 from .config import get_kag_config
 from .models import KAGDocument, KAGProject, KAGTask
+from .graph_viz import (
+    expand_subgraph,
+    get_graph_api,
+    overview_subgraph,
+    qa_graph_bundle,
+)
+from .evidence import sanitize_for_json
 from .runtime import prepare_project_runtime
 from .serializers import (
     KAGDocumentSerializer,
@@ -125,6 +132,50 @@ class BuildView(APIView):
         return {"invoked": target_file}
 
 
+class GraphSubgraphView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        project_name = request.query_params.get("project_name") or "KGtestV2"
+        mode = request.query_params.get("mode") or "overview"
+        center_id = request.query_params.get("center_id")
+        default_limit = 40 if mode == "overview" else 200
+        try:
+            limit = int(request.query_params.get("limit") or default_limit)
+        except (TypeError, ValueError):
+            limit = default_limit
+        limit = max(1, min(limit, 500))
+
+        try:
+            graph_api = get_graph_api(project_name)
+            schema = graph_api.schema
+            from kag.common.conf import KAG_CONFIG
+
+            namespace = (KAG_CONFIG.all_config.get("project", {}) or {}).get(
+                "namespace", project_name
+            )
+            if mode == "expand":
+                if not center_id:
+                    return Response(
+                        {"error": "expand 模式需要 center_id"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                payload = expand_subgraph(
+                    graph_api, schema, center_id, limit=limit, namespace=namespace
+                )
+            else:
+                payload = overview_subgraph(
+                    graph_api, schema, limit=limit, namespace=namespace
+                )
+            return Response(payload)
+        except Exception as exc:
+            logger.exception("Graph subgraph failed for project %s", project_name)
+            return Response(
+                {"error": str(exc)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
 class QAView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -137,6 +188,9 @@ class QAView(APIView):
         project_id = serializer.validated_data.get("project_id")
         project_name = request.data.get("project_name") or "KGtestV2"
         include_evidence = request.data.get("include_evidence", False)
+        include_graph = request.data.get("include_graph", False)
+        if include_graph:
+            include_evidence = True
 
         if project_id:
             project = get_object_or_404(KAGProject, id=project_id)
@@ -159,14 +213,32 @@ class QAView(APIView):
                 question, project_name, include_evidence
             )
             task.status = KAGTask.Status.COMPLETED
+            safe_evidence = (
+                sanitize_for_json(evidence_list) if include_evidence else None
+            )
             result = {"answer": answer}
             if include_evidence:
-                result["evidence"] = evidence_list
+                result["evidence"] = safe_evidence
             task.result = result
             task.save()
             response = {"answer": answer, "task_id": task.id}
             if include_evidence:
-                response["evidence"] = evidence_list
+                response["evidence"] = safe_evidence
+            if include_graph:
+                from kag.common.conf import KAG_CONFIG
+
+                graph_api = get_graph_api(project_name)
+                namespace = (KAG_CONFIG.all_config.get("project", {}) or {}).get(
+                    "namespace", project_name
+                )
+                bundle = qa_graph_bundle(
+                    graph_api,
+                    graph_api.schema,
+                    evidence_list,
+                    namespace=namespace,
+                )
+                response["highlight_node_ids"] = bundle["highlight_node_ids"]
+                response["subgraph_delta"] = bundle["subgraph_delta"]
             return Response(response)
         except Exception as exc:
             task.status = KAGTask.Status.FAILED
