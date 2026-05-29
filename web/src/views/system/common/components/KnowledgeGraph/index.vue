@@ -328,6 +328,8 @@ async function loadOverviewGraph() {
 		if (payload.truncated) {
 			ElMessage.warning(t('message.pages.knowledge.graph.truncated'));
 		}
+		// Must finish loading before buildGraph — it no-ops while graphLoading is true.
+		graphLoading.value = false;
 		await nextTick();
 		buildGraph();
 	} catch (err) {
