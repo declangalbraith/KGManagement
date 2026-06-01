@@ -1146,3 +1146,148 @@ def qa_graph_bundle(
         namespace=namespace,
     )
     return {"highlight_node_ids": highlight, "subgraph_delta": delta}
+
+
+def _subgraph_node_label(node) -> str:
+    """Display label for a builder SubGraph node."""
+    props = node.properties or {}
+    for key in (
+        "name",
+        "issueTitle",
+        "问题标题",
+        "symptom",
+        "现象描述",
+        "title",
+        "标题",
+        "reportNo",
+        "8D编号",
+    ):
+        if props.get(key):
+            return str(props[key])
+    if node.name:
+        return str(node.name)
+    return str(node.id)
+
+
+def subgraph_to_viz(
+    sub_graph,
+    schema: Optional[SchemaUtils] = None,
+    namespace: str = "KGtestV2",
+) -> Dict[str, Any]:
+    """Convert builder SubGraph to frontend GraphSubgraphPayload shape."""
+    nodes_map: Dict[str, Dict[str, Any]] = {}
+    links: List[Dict[str, Any]] = []
+    link_keys: Set[str] = set()
+
+    for node in sub_graph.nodes or []:
+        short_type = spg_type_short(node.label, schema)
+        viz_type = resolve_viz_type(short_type)
+        legend = VIZ_TYPE_LEGEND[viz_type]
+        viz_id = node_viz_id(node.id, node.label, schema)
+        nodes_map[viz_id] = {
+            "id": viz_id,
+            "label": _subgraph_node_label(node),
+            "spgType": short_type,
+            "vizType": viz_type,
+            "group": legend["group"],
+            "properties": dict(node.properties or {}),
+        }
+
+    for edge in sub_graph.edges or []:
+        src_id = node_viz_id(edge.from_id, edge.from_type, schema)
+        tgt_id = node_viz_id(edge.to_id, edge.to_type, schema)
+        if src_id not in nodes_map:
+            short = spg_type_short(edge.from_type, schema)
+            viz_type = resolve_viz_type(short)
+            legend = VIZ_TYPE_LEGEND[viz_type]
+            nodes_map[src_id] = {
+                "id": src_id,
+                "label": edge.from_id,
+                "spgType": short,
+                "vizType": viz_type,
+                "group": legend["group"],
+                "properties": {},
+            }
+        if tgt_id not in nodes_map:
+            short = spg_type_short(edge.to_type, schema)
+            viz_type = resolve_viz_type(short)
+            legend = VIZ_TYPE_LEGEND[viz_type]
+            nodes_map[tgt_id] = {
+                "id": tgt_id,
+                "label": edge.to_id,
+                "spgType": short,
+                "vizType": viz_type,
+                "group": legend["group"],
+                "properties": {},
+            }
+        key = f"{src_id}|{edge.label}|{tgt_id}"
+        rev = f"{tgt_id}|{edge.label}|{src_id}"
+        if key in link_keys or rev in link_keys:
+            continue
+        link_keys.add(key)
+        links.append({"source": src_id, "target": tgt_id, "label": edge.label or "关联"})
+
+    return build_payload(list(nodes_map.values()), links, truncated=False)
+
+
+def _parse_viz_node_id(viz_id: str, spg_type: str, namespace: str) -> str:
+    """Extract biz id from frontend viz node id."""
+    for suffix in (
+        f"_{namespace}.{spg_type}",
+        f"_{spg_type}",
+    ):
+        if viz_id.endswith(suffix):
+            biz_id = viz_id[: -len(suffix)]
+            if biz_id:
+                return biz_id
+    try:
+        biz_id, _ = parse_center_id(viz_id)
+        return biz_id
+    except ValueError:
+        return viz_id
+
+
+def _format_spg_label(spg_type: str, namespace: str) -> str:
+    if "." in spg_type:
+        return spg_type
+    if spg_type.split(".")[0] == namespace:
+        return spg_type
+    return f"{namespace}.{spg_type}"
+
+
+def viz_to_subgraph(
+    nodes: List[Dict[str, Any]],
+    links: List[Dict[str, Any]],
+    namespace: str = "KGtestV2",
+):
+    """Convert approved frontend viz nodes/links back to builder SubGraph."""
+    from kag.interface.common.model.sub_graph import SubGraph, Node, Edge
+
+    node_by_viz_id: Dict[str, Node] = {}
+    for item in nodes:
+        spg_type = item.get("spgType") or "Thing"
+        biz_id = _parse_viz_node_id(item["id"], spg_type, namespace)
+        label = _format_spg_label(spg_type, namespace)
+        props = item.get("properties") or {}
+        display = item.get("label") or biz_id
+        props = {**props, "name": display}
+        node = Node(_id=biz_id, name=display, label=label, properties=props)
+        node_by_viz_id[item["id"]] = node
+
+    sub_nodes = list({n.hash_key: n for n in node_by_viz_id.values()}.values())
+    sub_edges: List[Edge] = []
+    for link in links:
+        src = node_by_viz_id.get(link["source"])
+        tgt = node_by_viz_id.get(link["target"])
+        if not src or not tgt:
+            continue
+        sub_edges.append(
+            Edge(
+                _id="",
+                from_node=src,
+                to_node=tgt,
+                label=link.get("label") or "关联",
+                properties=link.get("properties") or {},
+            )
+        )
+    return SubGraph(nodes=sub_nodes, edges=sub_edges)

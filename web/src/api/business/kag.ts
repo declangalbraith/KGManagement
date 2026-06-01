@@ -107,3 +107,77 @@ export function fetchGraphSubgraph(params: FetchGraphSubgraphParams = {}): Promi
 		},
 	}) as Promise<GraphSubgraphPayload>;
 }
+
+export interface KagBuildExtractOptions {
+	projectName?: string;
+	content?: string;
+	title?: string;
+	file?: File;
+}
+
+export interface KagBuildExtractResponse {
+	task_id: number;
+	subgraph: GraphSubgraphPayload;
+	stats: { nodeCount: number; edgeCount: number };
+}
+
+export interface KagBuildCommitOptions {
+	projectName?: string;
+	nodes: GraphVizNode[];
+	links: GraphVizLink[];
+}
+
+export interface KagBuildCommitResponse {
+	task_id: number;
+	status: string;
+	written: { nodes: number; edges: number };
+}
+
+const KAG_BUILD_TIMEOUT_MS = 180000;
+
+/**
+ * OpenSPG build 抽取预览（不写库）
+ */
+export function kagBuildExtract(options: KagBuildExtractOptions = {}): Promise<KagBuildExtractResponse> {
+	const { projectName = 'KGtestV2', content, title, file } = options;
+	if (file) {
+		const form = new FormData();
+		form.append('file', file);
+		form.append('project_name', projectName);
+		if (title) form.append('title', title);
+		return request({
+			url: '/api/kag/build/extract/',
+			method: 'post',
+			timeout: KAG_BUILD_TIMEOUT_MS,
+			data: form,
+			headers: { 'Content-Type': 'multipart/form-data' },
+		}) as Promise<KagBuildExtractResponse>;
+	}
+	return request({
+		url: '/api/kag/build/extract/',
+		method: 'post',
+		timeout: KAG_BUILD_TIMEOUT_MS,
+		data: {
+			project_name: projectName,
+			content,
+			...(title ? { title } : {}),
+		},
+	}) as Promise<KagBuildExtractResponse>;
+}
+
+/**
+ * HITL 审核通过后确认入库
+ */
+export function kagBuildCommit(options: KagBuildCommitOptions): Promise<KagBuildCommitResponse> {
+	const { projectName = 'KGtestV2', nodes, links } = options;
+	return request({
+		url: '/api/kag/build/commit/',
+		method: 'post',
+		timeout: KAG_BUILD_TIMEOUT_MS,
+		data: {
+			project_name: projectName,
+			nodes,
+			links,
+		},
+	}) as Promise<KagBuildCommitResponse>;
+}

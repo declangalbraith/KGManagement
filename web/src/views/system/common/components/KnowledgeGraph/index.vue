@@ -208,16 +208,11 @@ import {
 	kagAsk,
 	type GraphSubgraphDelta,
 	type GraphTypeLegendItem,
-	type GraphVizLink,
-	type GraphVizNode,
 } from '/@/api/business/kag';
 import { focusGraphCluster, HIGHLIGHT_CLUSTER_MAX_NODES, MAX_CLUSTER_NODES } from '../../graph/cluster';
-import type { GraphLink, GraphNode, GraphTypeLegendItem as LocalLegendItem } from '../../graph/types';
+import type { GraphLink, GraphNode } from '../../graph/types';
+import { FALLBACK_LEGEND, mapApiLink, mapApiNode } from '../../graph/utils';
 import { graphChatWelcome } from '../../graph/mock';
-
-const FALLBACK_LEGEND: Record<string, LocalLegendItem> = {
-	other: { label: '其他', color: '#9ca3af', icon: '•' },
-};
 
 interface ChatMessage {
 	id: string;
@@ -260,21 +255,6 @@ const selectedNodeProperties = computed(() => {
 
 function legendForNode(node: GraphNode): GraphTypeLegendItem {
 	return typeLegendConfig.value[node.spgType] || FALLBACK_LEGEND.other;
-}
-
-function mapApiNode(n: GraphVizNode): GraphNode {
-	return {
-		id: n.id,
-		label: n.label,
-		group: n.group,
-		spgType: n.spgType,
-		vizType: n.vizType,
-		properties: n.properties,
-	};
-}
-
-function mapApiLink(l: GraphVizLink): GraphLink {
-	return { source: l.source, target: l.target, label: l.label };
 }
 
 function applyTypeLegend(legend?: Record<string, GraphTypeLegendItem>) {

@@ -2,6 +2,8 @@ import type { GraphLink, GraphNode } from './types';
 
 /** Default overview: single cluster cap */
 export const MAX_CLUSTER_NODES = 40;
+/** Builder page loads a wider overview for merge preview */
+export const BUILDER_OVERVIEW_LIMIT = 80;
 /** QA highlight cluster cap (multi-hop BFS) */
 export const HIGHLIGHT_CLUSTER_MAX_NODES = 40;
 

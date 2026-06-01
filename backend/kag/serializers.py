@@ -38,3 +38,33 @@ class QAResponseSerializer(serializers.Serializer):
     answer = serializers.CharField()
     evidence = serializers.ListField(child=serializers.DictField(), required=False)
     task_id = serializers.IntegerField(required=False)
+
+
+class BuildExtractSerializer(serializers.Serializer):
+    project_name = serializers.CharField(required=False, default="KGtestV2")
+    project_id = serializers.IntegerField(required=False, allow_null=True)
+    content = serializers.CharField(required=False, allow_blank=True)
+    title = serializers.CharField(required=False, allow_blank=True)
+
+
+class BuildCommitNodeSerializer(serializers.Serializer):
+    id = serializers.CharField()
+    label = serializers.CharField()
+    spgType = serializers.CharField()
+    vizType = serializers.CharField(required=False)
+    group = serializers.IntegerField(required=False)
+    properties = serializers.DictField(required=False)
+
+
+class BuildCommitLinkSerializer(serializers.Serializer):
+    source = serializers.CharField()
+    target = serializers.CharField()
+    label = serializers.CharField(required=False, allow_blank=True)
+    properties = serializers.DictField(required=False)
+
+
+class BuildCommitSerializer(serializers.Serializer):
+    project_name = serializers.CharField(required=False, default="KGtestV2")
+    project_id = serializers.IntegerField(required=False, allow_null=True)
+    nodes = BuildCommitNodeSerializer(many=True)
+    links = BuildCommitLinkSerializer(many=True, required=False, default=list)

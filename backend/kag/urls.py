@@ -15,6 +15,8 @@ urlpatterns = [
         "get": "retrieve",
     })),
     path("build/", views.BuildView.as_view(), name="kag-build"),
+    path("build/extract/", views.BuildExtractView.as_view(), name="kag-build-extract"),
+    path("build/commit/", views.BuildCommitView.as_view(), name="kag-build-commit"),
     path("qa/", views.QAView.as_view(), name="kag-qa"),
     path("graph/subgraph/", views.GraphSubgraphView.as_view(), name="kag-graph-subgraph"),
     path("documents/", views.KAGDocumentViewSet.as_view({
