@@ -1,6 +1,8 @@
 import os
 import logging
 from pathlib import Path
+
+import yaml
 from django.conf import settings
 
 logger = logging.getLogger(__name__)
@@ -42,6 +44,36 @@ def get_kag_config():
         "project_root": getattr(settings, "KAG_PROJECT_ROOT",
                                  os.path.join(settings.BASE_DIR, "kag", "kag_projects")),
     }
+
+
+def bootstrap_knext_env(default_project: str = "KGtestV2") -> None:
+    """Set knext import-time env vars before heavy kag/knext modules load."""
+    openspg_host = getattr(settings, "KAG_OPENSPG_HOST", "http://127.0.0.1:8887")
+    os.environ.setdefault("KAG_PROJECT_HOST_ADDR", openspg_host)
+
+    project_root = getattr(
+        settings,
+        "KAG_PROJECT_ROOT",
+        os.path.join(settings.BASE_DIR, "kag", "kag_projects"),
+    )
+    config_path = Path(project_root) / default_project / "kag_config.yaml"
+    if not config_path.is_file():
+        return
+
+    try:
+        with open(config_path, "r", encoding="utf-8") as reader:
+            project_cfg = yaml.safe_load(reader) or {}
+    except Exception as exc:
+        logger.warning("Failed to read %s for knext bootstrap: %s", config_path, exc)
+        return
+
+    project = project_cfg.get("project", {}) or {}
+    if project.get("id") is not None:
+        os.environ.setdefault("KAG_PROJECT_ID", str(project["id"]))
+    if project.get("namespace"):
+        os.environ.setdefault("KAG_PROJECT_NAMESPACE", str(project["namespace"]))
+    if project.get("host_addr"):
+        os.environ.setdefault("KAG_PROJECT_HOST_ADDR", str(project["host_addr"]))
 
 
 def init_kag_from_settings():

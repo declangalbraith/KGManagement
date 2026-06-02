@@ -1,0 +1,473 @@
+namespace CompleteSchema
+
+############################################
+# 1. Windchill 主数据域
+############################################
+
+ProductModel(产品型号): EntityType
+	desc: 产品的设计型号(如EP2002阀/供风单元),克诺尔语境下对应一个成品物料号。
+	properties:
+		modelCode(型号编码): Text
+			index: Text
+			constraint: NotNull,Unique
+		modelName(型号名称): Text
+			index: Text
+		productLine(产品线): Text
+			index: Text                       # 制动 / 供风 / 车门 / 暖通
+		productFamily(产品族): Text
+			index: Text
+		manufacturerName(制造商名称): Text
+			index: Text
+	relations:
+		manufacturer(制造商): Organization
+		hasBOM(包含BOM): BOMStructure
+		hasInstance(产品实例): ProductInstance
+
+ProductInstance(产品实例): EntityType
+	desc: 一台具体出厂的实物机器,由产品序列号唯一标识。
+	properties:
+		serialNumber(产品序列号): Text
+			index: Text
+			constraint: NotNull,Unique
+		commissionDate(启用日期): Text
+		deliveryWeek(交付周次): Text
+			index: Text                       # 如 2021W44, 召回范围用
+		status(状态): Text
+			index: Text
+		ownerName(所属客户名称): Text
+			index: Text
+		siteCity(所在城市): Text
+			index: Text
+	relations:
+		basedOnModel(对应型号): ProductModel
+		ownedBy(所属客户): Organization
+		hasCurrentPart(当前安装件): PartSerial
+		inBatchScope(所属批次范围): BatchScope
+
+BOMStructure(BOM结构): EntityType
+	desc: 一棵BOM树的句柄,绑定到ProductModel,有版本。
+	properties:
+		bomCode(BOM编码): Text
+			index: Text
+			constraint: NotNull,Unique
+		bomVersion(BOM版本): Text
+			index: Text
+		effectiveDate(生效日期): Text
+	relations:
+		belongsToModel(所属型号): ProductModel
+		hasRootNode(根节点): BOMNode
+
+BOMNode(BOM节点): EntityType
+	desc: BOM树上的节点,代表一个安装位/位号,可挂具体Part或PartFamily(通用BOM)。
+	properties:
+		nodeId(节点ID): Text
+			index: Text
+			constraint: NotNull,Unique
+		positionCode(位号): Text
+			index: Text
+		bomLevel(BOM层级): Text
+		quantity(数量): Text
+		nodeName(节点名称): Text
+			index: Text
+	relations:
+		belongsToBOM(所属BOM): BOMStructure
+		parentNode(上级节点): BOMNode
+		ofPart(对应主用设计件): Part              # 具体BOM上落到型号
+		ofPartFamily(对应设计件族): PartFamily    # 通用BOM上挂族
+		replacementCandidate(候选替代件): Part    # 位号级候选
+		hasFailureMode(关联失效模式): FailureMode
+
+PartFamily(设计件族/规格族): EntityType
+	desc: 一类功能等价、规格相近的设计件的集合(如"供风单元用压力开关"),下挂金触点/银触点等具体Part。
+	properties:
+		familyCode(族编码): Text
+			index: Text
+			constraint: NotNull,Unique
+		familyName(族名称): Text
+			index: Text
+		categoryPath(分类路径): Text
+			index: Text                       # 如 气动元件/压力开关/供风单元用压力开关
+		commonSpec(共同规格): Text
+			index: TextAndVector
+	relations:
+		parentFamily(上级族): PartFamily
+		preferredPart(优选型号): Part             # 当前优选的具体Part,8D切换会改这里
+
+Part(设计件): EntityType
+	desc: 一种设计件型号(如Barksdale 923-1326银触点压力开关 / SUCO金触点压力开关)。
+	properties:
+		partNo(设计件号): Text
+			index: Text
+			constraint: NotNull,Unique
+		partName(设计件名称): Text
+			index: Text
+		partType(部件类型): Text
+			index: Text
+		manufacturerName(制造商名称): Text
+			index: Text
+		keySpec(关键规格): Text
+			index: Text                       # 如 触点材质=银/金, 用于族内区分
+	relations:
+		belongsToFamily(所属族): PartFamily
+		manufacturer(制造商): Organization
+		hasFailureMode(关联失效模式): FailureMode
+		inBatchScope(所属批次范围): BatchScope
+
+PartSerial(实物件): EntityType
+	desc: 装机的实物零件,由serialNumber+batchNo联合唯一标识。
+	# 同件去重靠后处理: uniqueKey = partNo::serialNumber::batchNo
+	properties:
+		serialNumber(部件序列号): Text
+			index: Text
+		batchNo(批次号): Text
+			index: Text
+		status(状态): Text
+			index: Text
+		supplierName(供应商名称): Text
+			index: Text
+		manufactureDate(生产日期): Text
+	relations:
+		instanceOfPart(对应设计件): Part
+		atBOMNode(安装位): BOMNode
+		installedOn(安装于产品): ProductInstance
+		suppliedBy(供应商): Organization
+		replaces(替换前件): PartSerial
+		inBatchScope(所属批次范围): BatchScope
+
+Installation(安装记录): EntityType
+	desc: 一次装/拆动作,记录把PartSerial装到ProductInstance的某BOMNode位上。
+	properties:
+		installationId(安装记录ID): Text
+			index: Text
+			constraint: NotNull,Unique
+		installTime(安装时间): Text
+			index: Text
+		removeTime(拆卸时间): Text
+		isCurrent(是否当前安装): Text
+			index: Text
+		operatorName(操作人姓名): Text
+	relations:
+		product(产品实例): ProductInstance
+		partSerial(实际安装件): PartSerial
+		bomNode(对应BOM节点): BOMNode
+		generatedByEvent(来源事件): ProductEvent
+
+BatchScope(批次范围): EntityType
+	desc: 一段交付/生产批次范围(如"2021年第44周后交付"),用于划定召回/加改范围。
+	properties:
+		scopeId(范围ID): Text
+			index: Text
+			constraint: NotNull,Unique
+		title(标题): Text
+			index: Text
+		startWeek(起始周次): Text
+			index: Text
+		endWeek(结束周次): Text
+			index: Text
+		description(描述): Text
+
+
+############################################
+# 2. 文档域
+############################################
+
+Document(文档): EntityType
+	desc: 任意来源文档(Windchill图纸/规范、DMS分析报告等),source区分来源。
+	properties:
+		docId(文档ID): Text
+			index: Text
+			constraint: NotNull,Unique
+		docNo(文档编号): Text
+			index: Text
+		title(标题): Text
+			index: TextAndVector
+		source(来源系统): Text
+			index: Text                       # Windchill / DMS / Other
+		docType(文档类型): Text
+			index: Text                       # Drawing / Spec / 8DReport / Test
+		version(版本): Text
+		issueDate(发布日期): Text
+	relations:
+		containsSection(包含章节): DocumentSection
+		describesPart(描述设计件): Part
+		describesBOMNode(描述BOM节点): BOMNode
+
+DocumentSection(文档章节): EntityType
+	desc: 文档中的一个章节,带向量便于RAG检索。
+	properties:
+		sectionId(章节ID): Text
+			index: Text
+			constraint: NotNull,Unique
+		sectionType(章节类型): Text
+			index: Text                       # Problem/Field/Locate/Mechanism/Test/Risk/Action
+		title(标题): Text
+			index: Text
+		content(章节正文): Text
+			index: TextAndVector
+	relations:
+		belongsToDocument(所属文档): Document
+
+Evidence(证据): EntityType
+	desc: 从章节抽出的最小证据单元,被根因/机制/措施引用。
+	properties:
+		evidenceId(证据ID): Text
+			index: Text
+			constraint: NotNull,Unique
+		evidenceType(证据类型): Text
+			index: Text                       # Field / Test / CT / Inspection
+		content(证据描述): Text
+			index: TextAndVector
+		observedTime(观察时间): Text
+	relations:
+		fromSection(来自章节): DocumentSection
+
+
+############################################
+# 3. 质量分析(8D)域
+############################################
+
+Problem(问题): EntityType
+	desc: 一个被分析的工程问题(如"供风单元频发5228故障"),一个Problem对应多个ProductEvent实例和一份8D。
+	properties:
+		problemId(问题ID): Text
+			index: Text
+			constraint: NotNull,Unique
+		title(标题): Text
+			index: Text
+		description(描述): Text
+			index: TextAndVector
+		firstObservedTime(首次发现时间): Text
+	relations:
+		hasFaultCode(关联故障码): FaultCode
+		affectsBOMNode(影响BOM节点): BOMNode
+		affectsPartFamily(影响设计件族): PartFamily
+		affectsPart(影响设计件): Part
+		relatedFailureMode(关联失效模式): FailureMode
+
+EightDReport(8D报告): EntityType
+	desc: 8D分析报告,reportNo唯一,分析一个Problem,沉淀根因/机制/措施。
+	properties:
+		reportNo(8D编号): Text
+			index: Text
+			constraint: NotNull,Unique
+		issueTitle(问题标题): Text
+			index: Text
+		reportStatus(报告状态): Text
+			index: Text
+		d2ProblemStatement(D2问题描述): Text
+			index: TextAndVector
+		d4RootCauseSummary(D4根因摘要): Text
+			index: TextAndVector
+		d5PermanentCorrectionSummary(D5永久纠正摘要): Text
+			index: TextAndVector
+		d7PreventionSummary(D7防再发摘要): Text
+			index: TextAndVector
+		riskAssessmentSummary(风险评估摘要): Text
+			index: TextAndVector
+		ownerName(负责人姓名): Text
+			index: Text
+		issueDate(发布日期): Text
+	relations:
+		sourceDocument(源文档): Document
+		addresses(分析的问题): Problem
+		affectedProduct(影响产品): ProductInstance
+		affectedBOMNode(影响BOM节点): BOMNode
+		affectedPart(影响设计件): Part
+		identifiesRootCause(识别根因): RootCause
+		hasAction(包含措施): ActionItem
+		responsibleOrg(责任组织): Organization
+
+RootCause(根本原因): EntityType
+	desc: 8D识别的根本原因(如NBR膜片变形堵住进气孔),由证据支撑,有诱因和机制链。
+	properties:
+		causeId(原因ID): Text
+			index: Text
+			constraint: NotNull,Unique
+		title(标题): Text
+			index: Text
+		description(描述): Text
+			index: TextAndVector
+		isVerified(是否已验证): Text
+			index: Text
+	relations:
+		belongsToReport(所属8D): EightDReport
+		affectsPart(影响设计件): Part
+		affectsBOMNode(影响BOM节点): BOMNode
+		supportedBy(证据支撑): Evidence
+		hasMechanism(失效机理): FailureMechanism
+		contributedBy(诱因): ContributingFactor
+
+FailureMechanism(失效机理): EntityType
+	desc: 根因到失效模式之间的中间机理,leadsTo串成链(如"密闭腔形成→活塞无法回位→压力开关卡滞")。
+	properties:
+		mechanismId(机理ID): Text
+			index: Text
+			constraint: NotNull,Unique
+		title(标题): Text
+			index: Text
+		description(描述): Text
+			index: TextAndVector
+	relations:
+		leadsTo(导致): FailureMechanism
+		causesFailureMode(造成失效模式): FailureMode
+		supportedBy(证据支撑): Evidence
+
+ContributingFactor(诱因): EntityType
+	desc: 让根因发生或加剧的外部因素(高温高湿/材料波动/装配压缩量)。
+	properties:
+		factorId(因素ID): Text
+			index: Text
+			constraint: NotNull,Unique
+		title(标题): Text
+			index: Text
+		factorType(因素类型): Text
+			index: Text                       # Environment / Material / Process / Design
+		description(描述): Text
+			index: TextAndVector
+	relations:
+		supportedBy(证据支撑): Evidence
+
+ActionItem(措施项): EntityType
+	desc: 8D中的措施,actionType区分:Containment(D3临时)/Corrective(D5纠正)/Preventive(D7预防)/Field(现场加改)/Verification(验证)。
+	properties:
+		actionId(措施ID): Text
+			index: Text
+			constraint: NotNull,Unique
+		title(标题): Text
+			index: Text
+		actionType(措施类型): Text
+			index: Text                       # 必填枚举
+		status(状态): Text
+			index: Text
+		ownerName(负责人姓名): Text
+			index: Text
+		plannedDate(计划日期): Text
+		completedDate(完成日期): Text
+		verificationResult(验证结果): Text     # actionType=Verification时使用
+	relations:
+		belongsToReport(所属8D): EightDReport
+		verifiesCause(验证原因): RootCause
+		replacesPart(被替换设计件): Part
+		replacesWith(替换为): Part
+		appliesToFamily(作用设计件族): PartFamily   # 族级切换(如族优选改为SUCO)
+		appliesToBOMNode(作用BOM节点): BOMNode
+		appliesToScope(作用批次范围): BatchScope    # 现场加改用
+		appliesToProduct(作用产品): ProductInstance # 临时遏制用
+		responsibleOrg(责任组织): Organization
+		supportedBy(证据支撑): Evidence
+
+FailureMode(失效模式): EntityType
+	desc: 标准化失效模式(如压力开关无法打开/1-3脚常闭异常),同义合并。
+	properties:
+		modeCode(失效模式编码): Text
+			index: Text
+			constraint: NotNull,Unique
+		modeName(失效模式名称): Text
+			index: Text
+		description(描述): Text
+			index: TextAndVector
+	relations:
+		triggers(触发故障码): FaultCode
+
+FaultCode(故障码): EntityType
+	desc: 设备上报的故障码(如5228 干燥器故障),克诺尔车载诊断系统的标准码。
+	properties:
+		codeValue(故障码值): Text
+			index: Text
+			constraint: NotNull,Unique
+		codeName(故障码名称): Text
+			index: Text
+		description(描述): Text
+
+
+############################################
+# 4. 产品事件域
+############################################
+
+ProductEvent(产品事件): EntityType
+	desc: 产品上发生的一次事件(故障/异常/客诉/试验),多个Event可归到同一个Problem。
+	properties:
+		eventId(事件ID): Text
+			index: Text
+			constraint: NotNull,Unique
+		eventType(事件类型): Text
+			index: Text
+		severity(严重级别): Text
+			index: Text
+		symptom(现象描述): Text
+			index: TextAndVector
+		eventTime(发生时间): Text
+			index: Text
+		status(处理状态): Text
+			index: Text
+		reporterName(上报人姓名): Text
+	relations:
+		happenedOn(发生于产品): ProductInstance
+		belongsToProblem(归属问题): Problem
+		relatedFailureMode(关联失效模式): FailureMode
+		relatedFaultCode(关联故障码): FaultCode
+		relatedSerial(关联实物件): PartSerial
+		relatedBOMNode(关联BOM节点): BOMNode
+		responsibleOrg(责任组织): Organization
+
+
+############################################
+# 5. Graphiti 时序域(精简版)
+############################################
+
+Episode(时序段): EntityType
+	desc: 一段时间内发生的事(现场故障期/试验期/分析期/措施推行期),挂多个Observation。
+	properties:
+		episodeId(段ID): Text
+			index: Text
+			constraint: NotNull,Unique
+		title(标题): Text
+			index: Text
+		episodeType(段类型): Text
+			index: Text                       # Field / Analysis / Test / Action
+		summary(摘要): Text
+			index: TextAndVector
+		validFrom(开始时间): Text
+			index: Text
+		validTo(结束时间): Text
+			index: Text
+	relations:
+		observed(观察到): Observation
+
+Observation(观察): EntityType
+	desc: 一次具体观察事实(车辆上报5228/更换后未复现/4取3复现),可未对齐(零件提及为文本),后续resolveTo回主图。
+	properties:
+		observationId(观察ID): Text
+			index: Text
+			constraint: NotNull,Unique
+		content(内容): Text
+			index: TextAndVector
+		mentionText(零件提及原文): Text
+			index: Text                       # 未对齐的零件提及,直接放属性
+		observedTime(观察时间): Text
+			index: Text
+		source(来源): Text                       # Field / Lab / Customer
+		confidence(置信度): Text
+	relations:
+		resolvedToPart(对齐到设计件): Part
+		resolvedToBOMNode(对齐到BOM节点): BOMNode
+		resolvedToSerial(对齐到实物件): PartSerial
+		alignsToEvent(对齐到产品事件): ProductEvent
+		supportsReport(佐证报告): EightDReport
+		fromEvidence(关联证据): Evidence
+
+
+############################################
+# 6. 组织
+############################################
+
+Organization(组织机构): EntityType
+	desc: 公司/部门/客户/供应商/制造商。
+	properties:
+		orgCode(组织编码): Text
+			index: Text
+			constraint: NotNull,Unique
+		orgName(组织名称): Text
+			index: Text
+		orgType(组织类型): Text
+			index: Text                       # Manufacturer / Supplier / Customer / Department
