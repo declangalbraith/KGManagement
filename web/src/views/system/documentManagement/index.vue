@@ -11,8 +11,8 @@
 			<el-tab-pane :label="t('message.pages.documentManagement.tabBom')" name="bom">
 				<KgBomIndex embedded route-prefix="/document-management" />
 			</el-tab-pane>
-			<el-tab-pane :label="t('message.pages.documentManagement.tabQuality')" name="quality">
-				<KgQualityDocsIndex embedded route-prefix="/document-management" />
+			<el-tab-pane :label="t('message.pages.documentManagement.tabGeneralDoc')" name="general-doc">
+				<KgGeneralDocIndex embedded route-prefix="/document-management" />
 			</el-tab-pane>
 		</el-tabs>
 	</div>
@@ -23,9 +23,9 @@ import { ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import KgBomIndex from '/@/views/system/bom/index.vue';
-import KgQualityDocsIndex from '/@/views/system/qualityDocs/index.vue';
+import KgGeneralDocIndex from '/@/views/system/generalDoc/index.vue';
 
-type DocTab = 'bom' | 'quality';
+type DocTab = 'bom' | 'general-doc';
 
 const { t } = useI18n();
 const route = useRoute();
@@ -34,7 +34,7 @@ const router = useRouter();
 const activeTab = ref<DocTab>('bom');
 
 function resolveTab(tab: unknown): DocTab {
-	return tab === 'quality' ? 'quality' : 'bom';
+	return tab === 'general-doc' ? 'general-doc' : 'bom';
 }
 
 function syncTabFromRoute() {

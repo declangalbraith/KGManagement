@@ -173,28 +173,18 @@ export const FRONTEND_MENU_ROUTES: FrontendMenuRouteItem[] = [
 				},
 			},
 			{
-				path: 'quality/new',
-				name: 'kg-quality-docs-create',
-				component: '/system/qualityDocs/create/index',
+				path: 'general-doc/:id',
+				name: 'kg-general-doc-detail',
+				component: '/system/generalDoc/detail/index',
 				meta: {
 					...noCacheMeta,
-					title: 'message.pages.qualityDocs.create',
+					title: 'message.pages.generalDoc.detail',
 					breadcrumbParents: [
 						...documentManagementBreadcrumb,
-						{ title: 'message.pages.documentManagement.tabQuality', path: '/document-management?tab=quality' },
-					],
-				},
-			},
-			{
-				path: 'quality/:id',
-				name: 'kg-quality-docs-detail',
-				component: '/system/qualityDocs/detail/index',
-				meta: {
-					...noCacheMeta,
-					title: 'message.pages.qualityDocs.detail',
-					breadcrumbParents: [
-						...documentManagementBreadcrumb,
-						{ title: 'message.pages.documentManagement.tabQuality', path: '/document-management?tab=quality' },
+						{
+							title: 'message.pages.documentManagement.tabGeneralDoc',
+							path: '/document-management?tab=general-doc',
+						},
 					],
 				},
 			},
@@ -328,9 +318,6 @@ export function buildBusinessRoutesFromMenu(): BusinessRouteRaw[] {
 	const legacy: BusinessRouteRaw[] = [
 		{ path: '/bom-management', name: 'kg-bom-legacy', redirect: '/document-management?tab=bom', meta: hiddenMeta },
 		{ path: '/bom-management/:id/extract', name: 'kg-bom-workbench-legacy', redirect: '/document-management/bom/:id/extract', meta: hiddenMeta },
-		{ path: '/quality-docs', name: 'kg-quality-docs-legacy', redirect: '/document-management?tab=quality', meta: hiddenMeta },
-		{ path: '/quality-docs/new', name: 'kg-quality-docs-create-legacy', redirect: '/document-management/quality/new', meta: hiddenMeta },
-		{ path: '/quality-docs/:id', name: 'kg-quality-docs-detail-legacy', redirect: '/document-management/quality/:id', meta: hiddenMeta },
 	];
 	return [...routes, ...legacy];
 }

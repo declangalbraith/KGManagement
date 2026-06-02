@@ -24,7 +24,7 @@ export const latestQualityDocs: LatestQualityDoc[] = [
 		tagClass: 'is-blue',
 		title: '制动盘总成 PFMEA V1.0',
 		updatedLabel: '2天前更新',
-		path: '/document-management/quality/doc-001',
+		path: '/document-management/general-doc/doc-001',
 	},
 	{
 		id: 'doc-002',
@@ -32,7 +32,7 @@ export const latestQualityDocs: LatestQualityDoc[] = [
 		tagClass: 'is-green',
 		title: '地铁1号线转向架巡检',
 		updatedLabel: '刚刚更新',
-		path: '/document-management/quality/doc-002',
+		path: '/document-management/general-doc/doc-002',
 	},
 ];
 
