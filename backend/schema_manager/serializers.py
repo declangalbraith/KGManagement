@@ -1,6 +1,23 @@
 from rest_framework import serializers
 
-from .models import SchemaVersion
+from dvadmin.utils.serializers import CustomModelSerializer
+
+from .models import SchemaProject, SchemaVersion
+
+
+class SchemaProjectSerializer(CustomModelSerializer):
+    class Meta:
+        model = SchemaProject
+        fields = [
+            "id",
+            "name",
+            "display_name",
+            "description",
+            "init_schema_path",
+            "create_datetime",
+            "update_datetime",
+        ]
+        read_only_fields = ["id", "create_datetime", "update_datetime"]
 
 
 class SchemaVersionListSerializer(serializers.ModelSerializer):
@@ -12,6 +29,7 @@ class SchemaVersionListSerializer(serializers.ModelSerializer):
         model = SchemaVersion
         fields = [
             "id",
+            "project_id",
             "version",
             "status",
             "is_current",
@@ -34,6 +52,7 @@ class SchemaVersionDetailSerializer(serializers.ModelSerializer):
         model = SchemaVersion
         fields = [
             "id",
+            "project_id",
             "version",
             "status",
             "is_current",
@@ -51,8 +70,15 @@ class SchemaVersionDetailSerializer(serializers.ModelSerializer):
 class SchemaSaveSerializer(serializers.Serializer):
     """保存草稿的请求体。"""
 
+    project_id = serializers.IntegerField(required=True, min_value=1)
     description = serializers.CharField(required=True, max_length=500)
     snapshot = serializers.DictField(required=True)
+
+
+class SchemaPublishSerializer(serializers.Serializer):
+    """发布当前草稿的请求体。"""
+
+    project_id = serializers.IntegerField(required=True, min_value=1)
 
 
 class SchemaImportSerializer(serializers.Serializer):

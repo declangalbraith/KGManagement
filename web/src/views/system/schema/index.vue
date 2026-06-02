@@ -3,6 +3,25 @@
 		<header class="kg-schema__toolbar">
 			<div class="kg-schema__toolbar-left">
 				<h1>{{ t('message.pages.schema.title') }}</h1>
+				<el-select
+					v-model="activeProjectId"
+					class="kg-schema__project-select"
+					:placeholder="t('message.pages.schema.selectProject')"
+					filterable
+					:loading="projectsLoading"
+					@change="onProjectChange"
+				>
+					<el-option
+						v-for="p in schemaProjects"
+						:key="p.id"
+						:label="p.display_name || p.name"
+						:value="p.id"
+					/>
+				</el-select>
+				<button type="button" class="kg-schema__link-btn" @click="openNewProjectDialog">
+					<el-icon><Plus /></el-icon>
+					{{ t('message.pages.schema.newProject') }}
+				</button>
 				<span class="kg-schema__sep" />
 				<span class="kg-schema__ver">{{ t('message.pages.schema.currentVersion', { ver: currentVersionLabel }) }}</span>
 				<span class="kg-schema__save-status">
@@ -232,7 +251,7 @@
 					</div>
 					<div class="kg-schema-history__body">
 						<div class="kg-hist-item is-current">
-							<strong>{{ currentVersionLabel }} ({{ t('message.pages.schema.currentDraft') }})</strong>
+							<strong>{{ currentVersionLabel }} ({{ currentVersionTag }})</strong>
 							<p>{{ t('message.pages.schema.historyUpdatedAt', { time: lastUpdateDisplay, author: currentAuthor }) }}</p>
 							<div class="kg-hist-note">{{ currentDraftDescription }}</div>
 							<div class="kg-hist-meta">
@@ -242,8 +261,7 @@
 						<div v-for="item in versionHistory" :key="item.id" class="kg-hist-item">
 							<div class="kg-hist-row">
 								<strong>{{ item.version }}</strong>
-								<span v-if="item.status === 'published'" class="kg-badge-pub">{{ t('message.pages.schema.statusPublished') }}</span>
-								<span v-else class="kg-badge-draft">{{ t('message.pages.schema.statusDraft') }}</span>
+								<span class="kg-badge-pub">{{ t('message.pages.schema.statusPublished') }}</span>
 							</div>
 							<p>{{ item.savedAt }} · {{ item.author }}</p>
 							<div class="kg-hist-note">{{ item.description }}</div>
@@ -376,13 +394,55 @@
 				<el-button type="primary" @click="confirmSaveDraft">{{ t('message.pages.schema.saveDraftConfirm') }}</el-button>
 			</template>
 		</el-dialog>
+
+		<!-- New project dialog -->
+		<el-dialog
+			v-model="newProjectOpen"
+			:title="t('message.pages.schema.newProjectTitle')"
+			width="480px"
+			destroy-on-close
+			:close-on-click-modal="false"
+			@closed="resetNewProjectForm"
+		>
+			<p class="kg-save-dialog__hint">{{ t('message.pages.schema.newProjectHint') }}</p>
+			<el-form label-position="top" class="kg-add-form">
+				<el-form-item :label="t('message.pages.schema.projectNameLabel')" required>
+					<el-input
+						v-model="newProjectForm.name"
+						class="mono"
+						:placeholder="t('message.pages.schema.projectNamePlaceholder')"
+					/>
+				</el-form-item>
+				<el-form-item :label="t('message.pages.schema.projectDisplayNameLabel')">
+					<el-input
+						v-model="newProjectForm.display_name"
+						:placeholder="t('message.pages.schema.projectDisplayNamePlaceholder')"
+					/>
+				</el-form-item>
+				<el-form-item :label="t('message.pages.schema.projectDescLabel')">
+					<el-input
+						v-model="newProjectForm.description"
+						type="textarea"
+						:rows="3"
+						:placeholder="t('message.pages.schema.projectDescPlaceholder')"
+					/>
+				</el-form-item>
+			</el-form>
+			<p v-if="newProjectError" class="kg-save-dialog__error">{{ newProjectError }}</p>
+			<template #footer>
+				<el-button @click="newProjectOpen = false">{{ t('message.pages.schema.cancel') }}</el-button>
+				<el-button type="primary" :loading="newProjectSubmitting" @click="confirmCreateProject">
+					{{ t('message.pages.schema.newProject') }}
+				</el-button>
+			</template>
+		</el-dialog>
 	</div>
 </template>
 
 <script setup lang="ts" name="kg-schema-index">
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import {
 	ArrowDown,
 	ArrowRight,
@@ -409,17 +469,26 @@ import {
 import SchemaConfigPanel from './components/SchemaConfigPanel.vue';
 import type { CommunityNode, EntityNode, RelationNode, SchemaVersionRecord, SelectionType } from './types';
 import {
+	createSchemaProject,
 	exportSchema,
 	getCurrentSchema,
-	getVersionDetail,
 	getVersionList,
 	importSchemaFile,
+	listSchemaProjects,
 	publishSchema,
 	saveSchemaDraft,
+	type SchemaProjectItem,
 } from './api';
 import { createEntityNode, createRelationNode } from './schemaEditing';
 import { cloneWorkbenchSnapshot, formatSchemaSavedTime } from './schemaVersion';
 const { t } = useI18n();
+
+const SCHEMA_ACTIVE_PROJECT_KEY = 'schema_active_project_id';
+
+const schemaProjects = ref<SchemaProjectItem[]>([]);
+const activeProjectId = ref<number | null>(null);
+const lastProjectId = ref<number | null>(null);
+const projectsLoading = ref(false);
 
 const communities = ref<CommunityNode[]>([]);
 const entities = ref<EntityNode[]>([]);
@@ -435,6 +504,7 @@ const importState = ref<'idle' | 'analyzing' | 'error'>('idle');
 const importErrorMsg = ref('');
 
 const currentVersionLabel = ref('');
+const currentVersionStatus = ref<'draft' | 'published'>('draft');
 const currentDraftDescription = ref('');
 const currentAuthor = ref('');
 const lastSavedAt = ref<Date | null>(null);
@@ -443,6 +513,11 @@ const versionHistory = ref<SchemaVersionRecord[]>([]);
 const saveDialogOpen = ref(false);
 const saveDescription = ref('');
 const saveDescriptionError = ref('');
+
+const newProjectOpen = ref(false);
+const newProjectSubmitting = ref(false);
+const newProjectError = ref('');
+const newProjectForm = reactive({ name: '', display_name: '', description: '' });
 
 const addEntityOpen = ref(false);
 const addRelationOpen = ref(false);
@@ -463,6 +538,12 @@ const lastUpdateDisplay = computed(() => {
 	return t('message.pages.schema.lastUpdateAt', { time: formatSchemaSavedTime(lastSavedAt.value) });
 });
 
+const currentVersionTag = computed(() =>
+	currentVersionStatus.value === 'published'
+		? t('message.pages.schema.currentPublished')
+		: t('message.pages.schema.currentDraft')
+);
+
 const expanded = reactive({ communities: true, entities: true, relations: true });
 
 const CANVAS_GRID = 40;
@@ -473,15 +554,55 @@ onUnmounted(() => {
 	activeDragCleanup?.();
 });
 
-async function loadCurrentSchema() {
+async function loadSchemaProjects() {
+	projectsLoading.value = true;
 	try {
-		const data = await getCurrentSchema();
+		const list = await listSchemaProjects();
+		schemaProjects.value = list;
+		if (!list.length) {
+			activeProjectId.value = null;
+			return;
+		}
+		const stored = localStorage.getItem(SCHEMA_ACTIVE_PROJECT_KEY);
+		const storedId = stored ? Number(stored) : NaN;
+		const matched = list.find((p) => p.id === storedId);
+		activeProjectId.value = matched?.id ?? list[0].id;
+		lastProjectId.value = activeProjectId.value;
+		localStorage.setItem(SCHEMA_ACTIVE_PROJECT_KEY, String(activeProjectId.value));
+	} catch (err) {
+		console.error('加载 Schema 项目失败:', err);
+	} finally {
+		projectsLoading.value = false;
+	}
+}
+
+function resetWorkbenchState() {
+	communities.value = [];
+	entities.value = [];
+	relations.value = [];
+	selection.value = null;
+	currentVersionId.value = null;
+	currentVersionLabel.value = '';
+	currentVersionStatus.value = 'draft';
+	currentDraftDescription.value = '';
+	currentAuthor.value = '';
+	lastSavedAt.value = null;
+	versionHistory.value = [];
+	isSaved.value = true;
+}
+
+async function loadCurrentSchema() {
+	if (!activeProjectId.value) return;
+	try {
+		const data = await getCurrentSchema(activeProjectId.value);
 		if (!data) {
+			resetWorkbenchState();
 			isSaved.value = true;
 			return;
 		}
 		currentVersionId.value = data.id;
 		currentVersionLabel.value = data.version;
+		currentVersionStatus.value = data.status === 'published' ? 'published' : 'draft';
 		if (data.description) currentDraftDescription.value = data.description;
 		currentAuthor.value = data.author || '';
 		lastSavedAt.value = data.update_datetime ? new Date(data.update_datetime) : null;
@@ -490,6 +611,8 @@ async function loadCurrentSchema() {
 		relations.value = data.snapshot.relations || [];
 		if (data.snapshot.entities?.length) {
 			selection.value = { type: 'Entity', id: data.snapshot.entities[0].id };
+		} else {
+			selection.value = null;
 		}
 		isSaved.value = true;
 	} catch (err) {
@@ -498,8 +621,9 @@ async function loadCurrentSchema() {
 }
 
 async function loadVersionHistory() {
+	if (!activeProjectId.value) return;
 	try {
-		const list = await getVersionList();
+		const list = await getVersionList(activeProjectId.value);
 		versionHistory.value = list.map((item) => ({
 			id: String(item.id),
 			version: item.version,
@@ -513,9 +637,94 @@ async function loadVersionHistory() {
 	}
 }
 
-onMounted(() => {
-	loadCurrentSchema();
-	loadVersionHistory();
+async function activateProject(projectId: number) {
+	lastProjectId.value = projectId;
+	activeProjectId.value = projectId;
+	localStorage.setItem(SCHEMA_ACTIVE_PROJECT_KEY, String(projectId));
+	await loadCurrentSchema();
+	await loadVersionHistory();
+}
+
+async function onProjectChange(newId: number) {
+	const prevId = lastProjectId.value;
+	if (newId === prevId) return;
+
+	if (!isSaved.value) {
+		try {
+			await ElMessageBox.confirm(
+				t('message.pages.schema.switchProjectConfirm'),
+				t('message.pages.schema.projectLabel'),
+				{
+					type: 'warning',
+					confirmButtonText: t('message.pages.schema.switchProjectConfirmBtn'),
+					cancelButtonText: t('message.pages.schema.cancel'),
+				}
+			);
+		} catch {
+			activeProjectId.value = prevId;
+			return;
+		}
+	}
+
+	lastProjectId.value = newId;
+	localStorage.setItem(SCHEMA_ACTIVE_PROJECT_KEY, String(newId));
+	await loadCurrentSchema();
+	await loadVersionHistory();
+}
+
+function openNewProjectDialog() {
+	newProjectError.value = '';
+	newProjectForm.name = '';
+	newProjectForm.display_name = '';
+	newProjectForm.description = '';
+	newProjectOpen.value = true;
+}
+
+function resetNewProjectForm() {
+	newProjectError.value = '';
+}
+
+async function confirmCreateProject() {
+	const name = newProjectForm.name.trim();
+	if (!name) {
+		newProjectError.value = t('message.pages.schema.projectNameRequired');
+		return;
+	}
+	if (!/^[A-Za-z_]\w*$/.test(name)) {
+		newProjectError.value = t('message.pages.schema.projectNameInvalid');
+		return;
+	}
+
+	newProjectSubmitting.value = true;
+	newProjectError.value = '';
+	try {
+		const created = await createSchemaProject({
+			name,
+			display_name: newProjectForm.display_name.trim() || name,
+			description: newProjectForm.description.trim(),
+		});
+		await loadSchemaProjects();
+		if (!schemaProjects.value.some((p) => p.id === created.id)) {
+			schemaProjects.value.push(created);
+		}
+		newProjectOpen.value = false;
+		await activateProject(created.id);
+		ElMessage.success(
+			t('message.pages.schema.projectCreated', {
+				name: created.display_name || created.name,
+			})
+		);
+	} catch (err: any) {
+		newProjectError.value = err?.msg || err?.message || String(err);
+	} finally {
+		newProjectSubmitting.value = false;
+	}
+}
+
+onMounted(async () => {
+	await loadSchemaProjects();
+	await loadCurrentSchema();
+	await loadVersionHistory();
 });
 
 const filteredCommunities = computed(() => {
@@ -801,21 +1010,31 @@ async function confirmSaveDraft() {
 	}
 
 	const snapshot = cloneWorkbenchSnapshot(communities.value, entities.value, relations.value);
+	if (!activeProjectId.value) {
+		ElMessage.error(t('message.pages.schema.noProjectSelected'));
+		return;
+	}
 	try {
-		const result = await saveSchemaDraft(description, snapshot);
+		const forkedFromPublished = currentVersionStatus.value === 'published';
+		const result = await saveSchemaDraft(activeProjectId.value, description, snapshot);
 		currentVersionId.value = result.id;
 		currentVersionLabel.value = result.version;
+		currentVersionStatus.value = 'draft';
 		currentDraftDescription.value = result.description || description;
 		currentAuthor.value = result.author || '';
 		lastSavedAt.value = result.update_datetime ? new Date(result.update_datetime) : new Date();
 		isSaved.value = true;
 		saveDialogOpen.value = false;
-		loadVersionHistory();
-		ElMessage.success(
-			t('message.pages.schema.savedWithVersion', {
-				version: result.version,
-			})
-		);
+		if (forkedFromPublished) {
+			loadVersionHistory();
+			ElMessage.success(
+				t('message.pages.schema.savedWithVersion', {
+					version: result.version,
+				})
+			);
+		} else {
+			ElMessage.success(t('message.pages.schema.savedDraft'));
+		}
 	} catch (err) {
 		ElMessage.error('保存失败');
 		console.error('保存 Schema 失败:', err);
@@ -823,11 +1042,17 @@ async function confirmSaveDraft() {
 }
 
 async function publish() {
+	if (!activeProjectId.value) {
+		ElMessage.error(t('message.pages.schema.noProjectSelected'));
+		return;
+	}
 	try {
-		const result = await publishSchema();
+		const result = await publishSchema(activeProjectId.value);
 		currentVersionLabel.value = result.version;
+		currentVersionStatus.value = 'published';
 		currentDraftDescription.value = result.description || '';
 		currentAuthor.value = result.author || '';
+		lastSavedAt.value = result.update_datetime ? new Date(result.update_datetime) : new Date();
 		isSaved.value = true;
 		loadVersionHistory();
 		ElMessage.success(t('message.pages.schema.published'));
@@ -838,6 +1063,10 @@ async function publish() {
 }
 
 function openImport() {
+	if (!activeProjectId.value) {
+		ElMessage.warning(t('message.pages.schema.noProjectSelected'));
+		return;
+	}
 	importOpen.value = true;
 	importState.value = 'idle';
 	importErrorMsg.value = '';
@@ -847,6 +1076,12 @@ async function onSchemaFile(e: Event) {
 	const input = e.target as HTMLInputElement;
 	const file = input.files?.[0];
 	if (!file) return;
+
+	if (!activeProjectId.value) {
+		ElMessage.warning(t('message.pages.schema.noProjectSelected'));
+		input.value = '';
+		return;
+	}
 
 	importState.value = 'analyzing';
 	importErrorMsg.value = '';
@@ -869,6 +1104,19 @@ async function onSchemaFile(e: Event) {
 				namespace: result.stats.namespace,
 			})
 		);
+		const currentProject = schemaProjects.value.find((p) => p.id === activeProjectId.value);
+		if (
+			currentProject &&
+			result.stats.namespace &&
+			result.stats.namespace !== currentProject.name
+		) {
+			ElMessage.warning(
+				t('message.pages.schema.importNamespaceMismatch', {
+					namespace: result.stats.namespace,
+					project: currentProject.display_name || currentProject.name,
+				})
+			);
+		}
 	} catch (err: any) {
 		importErrorMsg.value = err?.message || err?.error || String(err);
 		importState.value = 'error';
@@ -882,8 +1130,12 @@ function openHistory() {
 }
 
 async function handleExport() {
+	if (!activeProjectId.value) {
+		ElMessage.error(t('message.pages.schema.noProjectSelected'));
+		return;
+	}
 	try {
-		const result = await exportSchema();
+		const result = await exportSchema(activeProjectId.value);
 		const blob = new Blob([result.content], { type: 'text/plain;charset=utf-8' });
 		const elink = document.createElement('a');
 		elink.download = `${result.version}.schema`;
@@ -929,6 +1181,13 @@ async function handleExport() {
 	align-items: center;
 	gap: 12px;
 	flex-wrap: wrap;
+}
+
+.kg-schema__project-select {
+	width: 180px;
+	:deep(.el-input__wrapper) {
+		box-shadow: 0 0 0 1px #e2e8f0 inset;
+	}
 }
 
 .kg-schema__subtitle {
