@@ -18,6 +18,7 @@ docs/superpowers/
 
 # Docker Postgres 数据目录（仅忽略内容，目录由 init.sh mkdir 创建）
 docker_env/postgres/pgdata/
+docker_env/minio/knowledge-graph-minio/data/
 
 # Python cache / runtime artifacts
 __pycache__/

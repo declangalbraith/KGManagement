@@ -1,20 +1,18 @@
-export type BomStatus = 'Active' | 'Draft' | 'Archived';
-export type IngestStatus = 'Pending' | 'Extracted';
-export type BomNodeStatus = 'Ingested' | 'Pending';
+export type GraphStatus = 'pending' | 'extracted';
 
 export interface BomRecord {
-	id: string;
-	name: string;
-	code: string;
-	version: string;
-	deviceModel: string;
-	productLine: string;
+	id: number;
+	number: string;
+	state: string;
+	type_designation: string;
+	description_en: string;
 	uploader: string;
-	uploadTime: string;
-	updateTime: string;
-	status: BomStatus;
-	ingestStatus: IngestStatus;
+	upload_time: string;
+	graph_status: GraphStatus;
+	original_filename: string;
 }
+
+export type BomNodeStatus = 'Ingested' | 'Pending';
 
 export interface BomTreeNode {
 	id: string;

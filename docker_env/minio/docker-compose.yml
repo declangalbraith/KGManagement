@@ -1,0 +1,23 @@
+version: '3.8'
+
+# MinIO 独立部署（Django 不挂载 data 卷，仅通过 S3 API 访问）
+# 启动: cd docker_env/minio && docker compose up -d
+# S3 API:   http://<host>:9002
+# Console:  http://<host>:9003  (admin / admin123456)
+
+services:
+  minio:
+    # image: artifactory-esc.corp.knorr-bremse.com:8482/docker-public/minio/minio:latest
+    image: minio/minio:latest
+    # 若无法拉取内网镜像，可改为: minio/minio:latest
+    container_name: knowledge-graph-minio
+    environment:
+      MINIO_ROOT_USER: admin
+      MINIO_ROOT_PASSWORD: admin123456
+    ports:
+      - "9002:9000"   # S3 API
+      - "9003:9001"   # Web Console
+    volumes:
+      - ./knowledge-graph-minio/data:/data
+    command: server /data --console-address :9001
+    restart: unless-stopped

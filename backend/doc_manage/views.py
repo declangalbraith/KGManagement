@@ -1,0 +1,92 @@
+import logging
+import mimetypes
+
+from django.http import StreamingHttpResponse
+from rest_framework import status, viewsets
+from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
+from rest_framework.parsers import FormParser, MultiPartParser
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+
+from doc_manage.models import BomDocument
+from doc_manage.serializers import BomDocumentPatchSerializer, BomDocumentSerializer
+from doc_manage.services import minio_client
+from doc_manage.services.bom_service import soft_delete_bom_document, upload_bom_document
+
+logger = logging.getLogger(__name__)
+
+
+class BomDocumentViewSet(viewsets.ModelViewSet):
+    queryset = BomDocument.objects.all()
+    serializer_class = BomDocumentSerializer
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+    pagination_class = None
+    http_method_names = ["get", "post", "patch", "delete", "head", "options"]
+    search_fields = ["number", "description_en", "type_designation", "uploader", "state"]
+
+    def get_serializer_class(self):
+        if self.action in ("partial_update", "update"):
+            return BomDocumentPatchSerializer
+        return BomDocumentSerializer
+
+    def get_queryset(self):
+        qs = BomDocument.objects.filter(is_deleted=False)
+        search = self.request.query_params.get("search", "").strip()
+        if search:
+            from django.db.models import Q
+
+            qs = qs.filter(
+                Q(number__icontains=search)
+                | Q(description_en__icontains=search)
+                | Q(type_designation__icontains=search)
+                | Q(uploader__icontains=search)
+                | Q(state__icontains=search)
+            )
+        return qs
+
+    def create(self, request, *args, **kwargs):
+        uploaded = request.FILES.get("file")
+        if not uploaded:
+            return Response({"file": ["请上传 BOM 文件"]}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            document = upload_bom_document(user=request.user, uploaded_file=uploaded)
+        except ValidationError as exc:
+            return Response(exc.detail, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as exc:
+            logger.exception("BOM upload failed")
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        serializer = self.get_serializer(document)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def partial_update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(BomDocumentSerializer(instance).data)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        soft_delete_bom_document(instance)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=True, methods=["get"], url_path="download")
+    def download(self, request, pk=None):
+        document = self.get_object()
+        try:
+            obj = minio_client.get_object_stream(document.minio_path)
+        except Exception as exc:
+            logger.exception("BOM download failed for id=%s", pk)
+            return Response({"detail": str(exc)}, status=status.HTTP_404_NOT_FOUND)
+
+        content_type, _ = mimetypes.guess_type(document.original_filename)
+        response = StreamingHttpResponse(
+            streaming_content=obj.stream(32 * 1024),
+            content_type=content_type or "application/octet-stream",
+        )
+        response["Content-Disposition"] = (
+            f'attachment; filename="{document.original_filename}"'
+        )
+        return response
