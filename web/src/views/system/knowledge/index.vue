@@ -100,7 +100,7 @@
 								</router-link>
 								<div v-if="idx < latestQualityDocs.length - 1" class="kg-kb__latest-divider" />
 							</template>
-							<button type="button" class="kg-kb__enter-docs" @click="router.push('/document-management?tab=quality')">
+							<button type="button" class="kg-kb__enter-docs" @click="router.push('/document-management?tab=general-doc')">
 								{{ t('message.pages.knowledge.enterDocs') }}
 								<el-icon><ArrowRight /></el-icon>
 							</button>
@@ -210,7 +210,7 @@ import {
 import KnowledgeGraph from '/@/views/system/common/components/KnowledgeGraph/index.vue';
 import KnowledgeGraphBuilder from './components/KnowledgeGraphBuilder.vue';
 import KnowledgeManagement from './components/KnowledgeManagement.vue';
-import DocumentViewer from '../qualityDocs/components/DocumentViewer.vue';
+import DocumentViewer from '../generalDoc/components/DocumentViewer.vue';
 import {
 	hotTopics,
 	knowledgeCategories,

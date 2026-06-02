@@ -13,18 +13,18 @@
 								<p>
 									<span class="kg-viewer__type">{{ typeLabel }} Document</span>
 									<span>·</span>
-									<span class="kg-viewer__controlled">{{ t('message.pages.qualityDocs.controlledDoc') }}</span>
+									<span class="kg-viewer__controlled">{{ t('message.pages.generalDoc.controlledDoc') }}</span>
 								</p>
 							</div>
 						</div>
 						<div class="kg-viewer__head-actions">
 							<button type="button" class="kg-viewer__btn" @click="onPrint">
 								<el-icon><Printer /></el-icon>
-								{{ t('message.pages.qualityDocs.print') }}
+								{{ t('message.pages.generalDoc.print') }}
 							</button>
 							<button type="button" class="kg-viewer__btn" @click="onDownload">
 								<el-icon><Download /></el-icon>
-								{{ t('message.pages.qualityDocs.download') }}
+								{{ t('message.pages.generalDoc.download') }}
 							</button>
 							<button type="button" class="kg-viewer__close" @click="close">
 								<el-icon><Close /></el-icon>
@@ -94,11 +94,11 @@ function close() {
 }
 
 function onPrint() {
-	ElMessage.info(t('message.pages.qualityDocs.printToast'));
+	ElMessage.info(t('message.pages.generalDoc.printToast'));
 }
 
 function onDownload() {
-	ElMessage.success(t('message.pages.qualityDocs.downloadToast'));
+	ElMessage.success(t('message.pages.generalDoc.downloadToast'));
 }
 
 watch(

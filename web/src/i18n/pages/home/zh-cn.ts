@@ -2,7 +2,7 @@ export default {
 	message: {
 		pages: {
 			home: {
-				title: '工作台',
+				title: '首页',
 				subtitle: '欢迎回来，{name}。这是您今天的工作概览。',
 				createIssue: '创建问题',
 				pendingTasks: '我的待办',
