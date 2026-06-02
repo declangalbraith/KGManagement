@@ -2,7 +2,7 @@ export default {
 	message: {
 		pages: {
 			knowledge: {
-				title: '企业级知识库',
+				title: '知识库',
 				detail: '知识详情',
 				subtitle: '沉淀经验，构建知识图谱，提升问题处理效率。',
 				tabRetrieval: '知识检索',

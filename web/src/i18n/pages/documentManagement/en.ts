@@ -3,9 +3,10 @@ export default {
 		pages: {
 			documentManagement: {
 				title: 'Document Management',
-				subtitle: 'Manage BOM lists and quality documents in one place — upload, search, and lifecycle actions.',
+				subtitle:
+					'Manage BOM lists and general documents (quality files, 8D reports, inspection records, SOPs, etc.).',
 				tabBom: 'BOM Management',
-				tabQuality: 'Quality Documents',
+				tabGeneralDoc: 'Document Management',
 			},
 		},
 	},

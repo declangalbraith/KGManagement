@@ -2,25 +2,22 @@
 	<div class="kg-bom" :class="{ 'is-embedded': embedded }">
 		<div v-if="!embedded" class="kg-bom__head">
 			<h1 class="kg-bom__title">{{ t('message.pages.bom.title') }}</h1>
-			<button type="button" class="kg-bom__btn-create" @click="onCreate">
-				<el-icon><Plus /></el-icon>
-				{{ t('message.pages.bom.create') }}
-			</button>
-		</div>
-		<div v-else class="kg-bom__head kg-bom__head--embedded">
-			<button type="button" class="kg-bom__btn-create" @click="onCreate">
-				<el-icon><Plus /></el-icon>
-				{{ t('message.pages.bom.create') }}
-			</button>
 		</div>
 
-		<div class="kg-bom__upload" @click="onUploadClick">
+		<div
+			class="kg-bom__upload"
+			:class="{ 'is-dragover': isDragOver, 'is-uploading': uploading }"
+			@click="onUploadClick"
+			@dragover.prevent="onDragOver"
+			@dragleave.prevent="onDragLeave"
+			@drop.prevent="onDrop"
+		>
 			<div class="kg-bom__upload-icon">
 				<el-icon><UploadFilled /></el-icon>
 			</div>
 			<h3>{{ t('message.pages.bom.uploadTitle') }}</h3>
 			<p>{{ t('message.pages.bom.uploadHint') }}</p>
-			<button type="button" class="kg-bom__upload-btn" @click.stop="onUploadClick">
+			<button type="button" class="kg-bom__upload-btn" :disabled="uploading" @click.stop="onUploadClick">
 				<el-icon class="is-excel"><Document /></el-icon>
 				{{ t('message.pages.bom.selectFile') }}
 			</button>
@@ -40,6 +37,7 @@
 					v-model="searchQuery"
 					class="kg-bom__search"
 					:placeholder="t('message.pages.bom.searchPlaceholder')"
+					@keyup.enter="loadList"
 				/>
 			</div>
 			<button type="button" class="kg-bom__btn-outline" @click="ElMessage.info(t('message.pages.bom.filterOpen'))">
@@ -55,9 +53,9 @@
 			<table class="kg-bom__table">
 				<thead>
 					<tr>
-						<th>{{ t('message.pages.bom.colNameCode') }}</th>
-						<th>{{ t('message.pages.bom.colVersion') }}</th>
-						<th>{{ t('message.pages.bom.colDeviceLine') }}</th>
+						<th>{{ t('message.pages.bom.colNumberDesc') }}</th>
+						<th>{{ t('message.pages.bom.colState') }}</th>
+						<th>{{ t('message.pages.bom.colTypeDesignation') }}</th>
 						<th>{{ t('message.pages.bom.colUpload') }}</th>
 						<th>{{ t('message.pages.bom.colGraph') }}</th>
 						<th class="is-right">{{ t('message.pages.bom.colActions') }}</th>
@@ -65,32 +63,30 @@
 				</thead>
 				<tbody>
 					<tr
-						v-for="bom in filtered"
+						v-for="bom in list"
 						:key="bom.id"
 						class="kg-bom__row"
 						@click="onView(bom.id)"
 					>
 						<td>
-							<div class="kg-bom__name">{{ bom.name }}</div>
-							<div class="kg-bom__code">{{ bom.code }}</div>
+							<div class="kg-bom__name">{{ bom.description_en || '—' }}</div>
+							<div class="kg-bom__code">{{ bom.number }}</div>
 						</td>
 						<td>
-							<span class="kg-bom__version">{{ bom.version }}</span>
+							<span class="kg-bom__state">{{ bom.state || '—' }}</span>
 						</td>
 						<td>
-							<div>{{ bom.deviceModel }}</div>
-							<div class="kg-bom__sub">{{ bom.productLine }}</div>
+							<div>{{ bom.type_designation || '—' }}</div>
+							<div class="kg-bom__sub">{{ bom.original_filename }}</div>
 						</td>
 						<td>
-							<div>{{ bom.uploader }}</div>
-							<div class="kg-bom__sub" :title="`${t('message.pages.bom.colUpload')} ${bom.updateTime}`">
-								{{ bom.uploadTime }}
-							</div>
+							<div>{{ bom.uploader || '—' }}</div>
+							<div class="kg-bom__sub">{{ formatTime(bom.upload_time) }}</div>
 						</td>
 						<td>
-							<span class="kg-bom__ingest" :class="ingestClass(bom.ingestStatus)">
+							<span class="kg-bom__ingest" :class="ingestClass(bom.graph_status)">
 								<span class="kg-bom__ingest-dot" />
-								{{ ingestLabel(bom.ingestStatus) }}
+								{{ ingestLabel(bom.graph_status) }}
 							</span>
 						</td>
 						<td class="is-right" @click.stop>
@@ -116,27 +112,26 @@
 					</tr>
 				</tbody>
 			</table>
-			<div v-if="filtered.length === 0" class="kg-bom__empty">—</div>
+			<div v-if="loading" class="kg-bom__empty">{{ t('message.pages.bom.listLoading') }}</div>
+			<div v-else-if="list.length === 0" class="kg-bom__empty">—</div>
 		</div>
 	</div>
 </template>
 
 <script setup lang="ts" name="kg-bom-index">
-import { computed, ref } from 'vue';
+import { onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { ElMessage } from 'element-plus';
+import { Delete, Document, Download, Filter, Search, UploadFilled } from '@element-plus/icons-vue';
+import type { BomRecord, GraphStatus } from './types';
 import {
-	Delete,
-	Document,
-	Download,
-	Filter,
-	Plus,
-	Search,
-	UploadFilled,
-} from '@element-plus/icons-vue';
-import type { BomRecord, IngestStatus } from './types';
-import { bomList } from './mock';
+	deleteBomDocument,
+	downloadBomDocument,
+	fetchBomList,
+	uploadBomFile,
+	type BomDocument,
+} from '/@/api/docManage/bom';
 
 const BOM_FILE_EXT = ['.xlsx', '.xls', '.csv'];
 
@@ -155,26 +150,38 @@ const { t } = useI18n();
 const router = useRouter();
 const searchQuery = ref('');
 const fileInputRef = ref<HTMLInputElement | null>(null);
-const list = ref<BomRecord[]>([...bomList]);
+const isDragOver = ref(false);
+const uploading = ref(false);
+const loading = ref(false);
+const list = ref<BomRecord[]>([]);
 
-const filtered = computed(() => {
-	const q = searchQuery.value.trim().toLowerCase();
-	if (!q) return list.value;
-	return list.value.filter(
-		(b) =>
-			b.name.toLowerCase().includes(q) ||
-			b.code.toLowerCase().includes(q) ||
-			b.deviceModel.toLowerCase().includes(q) ||
-			b.productLine.toLowerCase().includes(q)
-	);
-});
-
-function ingestClass(status: IngestStatus) {
-	return status === 'Extracted' ? 'is-extracted' : 'is-pending';
+function mapRecord(doc: BomDocument): BomRecord {
+	return {
+		id: doc.id,
+		number: doc.number,
+		state: doc.state,
+		type_designation: doc.type_designation,
+		description_en: doc.description_en,
+		uploader: doc.uploader,
+		upload_time: doc.upload_time,
+		graph_status: doc.graph_status,
+		original_filename: doc.original_filename,
+	};
 }
 
-function ingestLabel(status: IngestStatus) {
-	return status === 'Extracted'
+function formatTime(value: string) {
+	if (!value) return '—';
+	const date = new Date(value);
+	if (Number.isNaN(date.getTime())) return value;
+	return date.toLocaleString('zh-CN', { hour12: false });
+}
+
+function ingestClass(status: GraphStatus) {
+	return status === 'extracted' ? 'is-extracted' : 'is-pending';
+}
+
+function ingestLabel(status: GraphStatus) {
+	return status === 'extracted'
 		? t('message.pages.bom.ingestExtracted')
 		: t('message.pages.bom.ingestPending');
 }
@@ -184,49 +191,97 @@ function isAllowedBomFile(file: File) {
 	return BOM_FILE_EXT.some((ext) => name.endsWith(ext));
 }
 
-function onCreate() {
-	ElMessage.info(t('message.pages.bom.createToast'));
+async function loadList() {
+	loading.value = true;
+	try {
+		const data = await fetchBomList(searchQuery.value.trim() || undefined);
+		list.value = (data || []).map(mapRecord);
+	} catch {
+		ElMessage.error(t('message.pages.bom.listLoadFailed'));
+	} finally {
+		loading.value = false;
+	}
 }
 
 function onUploadClick() {
+	if (uploading.value) return;
 	fileInputRef.value?.click();
+}
+
+function onDragOver() {
+	isDragOver.value = true;
+}
+
+function onDragLeave() {
+	isDragOver.value = false;
+}
+
+function onDrop(e: DragEvent) {
+	isDragOver.value = false;
+	const file = e.dataTransfer?.files?.[0];
+	if (file) handleBomFile(file);
 }
 
 function onFileChange(e: Event) {
 	const input = e.target as HTMLInputElement;
 	const file = input.files?.[0];
 	if (!file) return;
-	if (!isAllowedBomFile(file)) {
-		ElMessage.warning(t('message.pages.bom.uploadInvalidType'));
-		input.value = '';
-		return;
-	}
-	ElMessage.success(`${t('message.pages.bom.uploadToast')}: ${file.name}`);
+	handleBomFile(file);
 	input.value = '';
 }
 
-function onView(id: string) {
+async function handleBomFile(file: File) {
+	if (!isAllowedBomFile(file)) {
+		ElMessage.warning(t('message.pages.bom.uploadInvalidType'));
+		return;
+	}
+	uploading.value = true;
+	try {
+		await uploadBomFile(file);
+		ElMessage.success(`${t('message.pages.bom.uploadToast')}: ${file.name}`);
+		await loadList();
+	} catch (err: unknown) {
+		const detail =
+			(err as { response?: { data?: { file?: string[]; detail?: string } } })?.response?.data?.file?.[0] ||
+			(err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+		ElMessage.error(detail || t('message.pages.bom.uploadFailed'));
+	} finally {
+		uploading.value = false;
+	}
+}
+
+function onView(id: number) {
 	router.push(`${props.routePrefix}/bom/${id}/extract`);
 }
 
-function onDownload(bom: BomRecord) {
-	const ext = bom.ingestStatus === 'Extracted' ? 'xlsx' : 'csv';
-	const filename = `${bom.code}.${ext}`;
-	const content = `BOM,${bom.code}\nName,${bom.name}\nVersion,${bom.version}`;
-	const blob = new Blob([content], { type: 'text/csv;charset=utf-8' });
-	const url = URL.createObjectURL(blob);
-	const link = document.createElement('a');
-	link.href = url;
-	link.download = filename;
-	link.click();
-	URL.revokeObjectURL(url);
-	ElMessage.success(t('message.pages.bom.downloadStarted', { name: bom.name }));
+async function onDownload(bom: BomRecord) {
+	try {
+		await downloadBomDocument(bom.id, bom.original_filename);
+		ElMessage.success(t('message.pages.bom.downloadStarted', { name: bom.description_en || bom.number }));
+	} catch {
+		ElMessage.error(t('message.pages.bom.downloadFailed'));
+	}
 }
 
-function onDelete(id: string) {
-	list.value = list.value.filter((b) => b.id !== id);
-	ElMessage.warning(t('message.pages.bom.deleteConfirm'));
+async function onDelete(id: number) {
+	try {
+		await deleteBomDocument(id);
+		list.value = list.value.filter((b) => b.id !== id);
+		ElMessage.warning(t('message.pages.bom.deleteConfirm'));
+	} catch {
+		ElMessage.error(t('message.pages.bom.deleteFailed'));
+	}
 }
+
+let searchTimer: ReturnType<typeof setTimeout> | null = null;
+watch(searchQuery, () => {
+	if (searchTimer) clearTimeout(searchTimer);
+	searchTimer = setTimeout(() => loadList(), 300);
+});
+
+onMounted(() => {
+	loadList();
+});
 </script>
 
 <style scoped lang="scss">
@@ -240,11 +295,6 @@ function onDelete(id: string) {
 		margin: 0;
 		padding: 0;
 	}
-}
-
-.kg-bom__head--embedded {
-	justify-content: flex-end;
-	margin-bottom: 16px;
 }
 
 .kg-bom__head {
@@ -263,25 +313,6 @@ function onDelete(id: string) {
 	color: #0f172a;
 }
 
-.kg-bom__btn-create {
-	display: inline-flex;
-	align-items: center;
-	gap: 6px;
-	height: 40px;
-	padding: 0 18px;
-	border: none;
-	border-radius: 6px;
-	background: #1a1a1a;
-	color: #fff;
-	font-size: 14px;
-	font-weight: 500;
-	cursor: pointer;
-	box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-	&:hover {
-		background: #333;
-	}
-}
-
 .kg-bom__upload {
 	position: relative;
 	margin-bottom: 24px;
@@ -292,9 +323,18 @@ function onDelete(id: string) {
 	text-align: center;
 	cursor: pointer;
 	transition: background 0.2s, border-color 0.2s;
-	&:hover {
+	&:hover,
+	&.is-dragover {
 		background: rgba(0, 0, 0, 0.04);
 		border-color: #cbd5e1;
+	}
+	&.is-dragover {
+		border-color: var(--el-color-primary);
+		background: var(--el-color-primary-light-9);
+	}
+	&.is-uploading {
+		opacity: 0.7;
+		pointer-events: none;
 	}
 	h3 {
 		margin: 0 0 6px;
@@ -340,8 +380,12 @@ function onDelete(id: string) {
 	.is-excel {
 		color: #16a34a;
 	}
-	&:hover {
+	&:hover:not(:disabled) {
 		background: #f8fafc;
+	}
+	&:disabled {
+		opacity: 0.6;
+		cursor: not-allowed;
 	}
 }
 
@@ -477,13 +521,7 @@ function onDelete(id: string) {
 	margin-top: 2px;
 }
 
-.kg-bom__sub {
-	font-size: 11px;
-	color: #64748b;
-	margin-top: 2px;
-}
-
-.kg-bom__version {
+.kg-bom__state {
 	display: inline-block;
 	padding: 2px 8px;
 	font-size: 11px;
@@ -492,6 +530,12 @@ function onDelete(id: string) {
 	border-radius: 4px;
 	background: #f8fafc;
 	color: #475569;
+}
+
+.kg-bom__sub {
+	font-size: 11px;
+	color: #64748b;
+	margin-top: 2px;
 }
 
 .kg-bom__ingest {

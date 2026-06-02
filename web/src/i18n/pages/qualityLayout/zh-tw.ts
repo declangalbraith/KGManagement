@@ -3,7 +3,7 @@ export default {
 		pages: {
 			qualityLayout: {
 				sidebar: {
-					dashboard: '工作台',
+					dashboard: '首頁',
 					issues: '問題管理',
 					documents: '文檔管理',
 					schema: '圖譜 Schema 設計',

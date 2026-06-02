@@ -62,6 +62,7 @@ INSTALLED_APPS = [
     "dvadmin.system",
     "kag",
     "schema_manager",
+    "doc_manage",
 ]
 
 MIDDLEWARE = [
@@ -446,6 +447,17 @@ KAG_NEO4J_URI = locals().get("KAG_NEO4J_URI", "bolt://localhost:7687")
 KAG_NEO4J_USER = locals().get("KAG_NEO4J_USER", "neo4j")
 KAG_NEO4J_PASSWORD = locals().get("KAG_NEO4J_PASSWORD", "neo4j@openspg")
 KAG_NEO4J_DATABASE = locals().get("KAG_NEO4J_DATABASE", "kgtestv2")
+
+# ================================================= #
+# ****************** MinIO 配置 ******************* #
+# ================================================= #
+MINIO_IP = locals().get("MINIO_IP", "127.0.0.1")
+MINIO_PORT = locals().get("MINIO_PORT", 9002)
+MINIO_CONSOLE_PORT = locals().get("MINIO_CONSOLE_PORT", 9003)
+MINIO_ACCOUNT = locals().get("MINIO_ACCOUNT", "admin")
+MINIO_PASSWORD = locals().get("MINIO_PASSWORD", "admin123456")
+MINIO_BUCKET = locals().get("MINIO_BUCKET", "kg-documents")
+MINIO_SECURE = locals().get("MINIO_SECURE", False)
 
 # OpenSPG 配置
 KAG_OPENSPG_HOST = locals().get("KAG_OPENSPG_HOST", "http://localhost:18887")

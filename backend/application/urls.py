@@ -124,6 +124,8 @@ urlpatterns = (
             path('api/kag/', include('kag.urls')),
             # Schema 本体设计
             path('api/schema/', include('schema_manager.urls')),
+            # 文档管理（BOM / 质量文档）
+            path('api/doc-manage/', include('doc_manage.urls')),
         ]
         + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
         + static(settings.STATIC_URL, document_root=settings.STATIC_URL)

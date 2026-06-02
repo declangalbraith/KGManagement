@@ -33,6 +33,14 @@ LOGIN_NO_CAPTCHA_AUTH = True
 # ================================================= #
 # ****************** 其他 配置  ******************* #
 # ================================================= #
+# MinIO 配置（Django 通过 S3 SDK 访问，不挂载 MinIO 数据卷）
+MINIO_IP = '117.62.232.51'
+MINIO_PORT = 9002
+MINIO_CONSOLE_PORT = 9003
+MINIO_ACCOUNT = 'admin'
+MINIO_PASSWORD = 'admin123456'
+MINIO_BUCKET = 'kg-documents'
+MINIO_SECURE = False
 
 ALLOWED_HOSTS = ["*"]
 COLUMN_EXCLUDE_APPS = []
