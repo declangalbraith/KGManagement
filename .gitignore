@@ -128,3 +128,6 @@ backend/gunicorn.pid
 backend/ckpt/
 backend/kag/kag_projects/**/builder/prompt/_llm_dump/
 backend/kag/kag_projects/**/builder/inbox/
+
+
+web-react/

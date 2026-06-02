@@ -14,12 +14,11 @@
 				>
 					<span v-if="k === breadcrumbList.length - 1" class="layout-navbars-breadcrumb-span">
 						<SvgIcon :name="v.meta?.icon" class="layout-navbars-breadcrumb-iconfont" v-if="themeConfig.isBreadcrumbIcon" />
-						<div v-if="!v.meta?.tagsViewName">{{ resolveRouteMetaTitle(v.meta?.title) }}</div>
-						<div v-else>{{ v.meta.tagsViewName }}</div>
+						<div>{{ resolveBreadcrumbLabel(v.meta) }}</div>
 					</span>
 					<a v-else @click.prevent="onBreadcrumbClick(v)">
 						<SvgIcon :name="v.meta?.icon" class="layout-navbars-breadcrumb-iconfont" v-if="themeConfig.isBreadcrumbIcon" />
-						{{ resolveRouteMetaTitle(v.meta?.title) }}
+						{{ resolveBreadcrumbLabel(v.meta) }}
 					</a>
 				</el-breadcrumb-item>
 			</transition-group>
@@ -30,8 +29,9 @@
 <script setup lang="ts" name="layoutBreadcrumb">
 import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { useI18n } from 'vue-i18n';
 import { Local } from '/@/utils/storage';
-import { resolveRouteMetaTitle } from '/@/utils/other';
+import { resolveBreadcrumbLabel } from '/@/utils/other';
 import { storeToRefs } from 'pinia';
 import { useThemeConfig } from '/@/stores/themeConfig';
 import { useRoutesList } from '/@/stores/routesList';
@@ -43,6 +43,7 @@ const storesThemeConfig = useThemeConfig();
 const { themeConfig } = storeToRefs(storesThemeConfig);
 const { routesList } = storeToRefs(stores);
 const { items: breadcrumbExtras } = storeToRefs(useBreadcrumbExtras());
+const { locale } = useI18n();
 const route = useRoute();
 const router = useRouter();
 
@@ -54,6 +55,7 @@ const isShowBreadcrumb = computed(() => {
 
 const breadcrumbList = computed(() => {
 	if (!themeConfig.value.isBreadcrumb) return [];
+	void locale.value;
 	return buildBreadcrumbList(route, routesList.value, breadcrumbExtras.value);
 });
 

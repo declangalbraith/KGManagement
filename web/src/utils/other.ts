@@ -17,10 +17,23 @@ import {SystemConfigStore} from "/@/stores/systemConfig";
 export function resolveRouteMetaTitle(title: string | undefined | null): string {
 	if (title == null || title === '') return '';
 	const g = i18n.global;
+	// Track locale so callers re-render when language switches (breadcrumb / tagsView).
+	void g.locale.value;
 	if (g.te(title)) {
 		return String(g.t(title));
 	}
 	return title;
+}
+
+/** Breadcrumb label: prefer live i18n from meta.title over stale tagsViewName snapshot. */
+export function resolveBreadcrumbLabel(meta: RouteItem['meta'] | undefined): string {
+	if (!meta) return '';
+	const title = meta.title as string | undefined;
+	if (title && i18n.global.te(title)) {
+		return resolveRouteMetaTitle(title);
+	}
+	if (meta.tagsViewName) return String(meta.tagsViewName);
+	return resolveRouteMetaTitle(title);
 }
 
 // 引入组件
