@@ -11,7 +11,7 @@
 					{{ isSaved ? t('message.pages.schema.autoSaved') : t('message.pages.schema.editing') }}
 					<em>| {{ lastUpdateDisplay }}</em>
 				</span>
-				<button type="button" class="kg-schema__link-btn" @click="historyOpen = true">
+				<button type="button" class="kg-schema__link-btn" @click="openHistory">
 					<el-icon><Clock /></el-icon>
 					{{ t('message.pages.schema.history') }}
 				</button>
@@ -22,7 +22,7 @@
 						<el-icon class="is-blue"><Upload /></el-icon>
 						{{ t('message.pages.schema.importSchema') }}
 					</button>
-					<button type="button" class="kg-schema__io-btn" @click="ElMessage.success(t('message.pages.schema.exportToast'))">
+					<button type="button" class="kg-schema__io-btn" @click="handleExport">
 						<el-icon class="is-green"><Download /></el-icon>
 						{{ t('message.pages.schema.export') }}
 						<el-icon><ArrowDown /></el-icon>
@@ -380,7 +380,7 @@
 </template>
 
 <script setup lang="ts" name="kg-schema-index">
-import { computed, onUnmounted, reactive, ref } from 'vue';
+import { computed, onMounted, onUnmounted, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ElMessage } from 'element-plus';
 import {
@@ -409,29 +409,24 @@ import {
 import SchemaConfigPanel from './components/SchemaConfigPanel.vue';
 import type { CommunityNode, EntityNode, RelationNode, SchemaVersionRecord, SelectionType } from './types';
 import {
-	INITIAL_DRAFT_DESCRIPTION,
-	INITIAL_DRAFT_VERSION,
-	initialVersionHistory,
-	mockCommunities,
-	mockEntities,
-	mockRelations,
-} from './mock';
-import { getParsedSchemaStats, parseOpenSpgSchema } from './parseOpenSpgSchema';
-import { parsedSchemaToWorkbench } from './schemaToWorkbench';
+	exportSchema,
+	getCurrentSchema,
+	getVersionDetail,
+	getVersionList,
+	importSchemaFile,
+	publishSchema,
+	saveSchemaDraft,
+} from './api';
 import { createEntityNode, createRelationNode } from './schemaEditing';
-import {
-	bumpDraftVersion,
-	cloneWorkbenchSnapshot,
-	createHistoryId,
-	formatSchemaSavedTime,
-} from './schemaVersion';
+import { cloneWorkbenchSnapshot, formatSchemaSavedTime } from './schemaVersion';
 const { t } = useI18n();
 
-const communities = ref<CommunityNode[]>([...mockCommunities]);
-const entities = ref<EntityNode[]>([...mockEntities]);
-const relations = ref<RelationNode[]>([...mockRelations]);
+const communities = ref<CommunityNode[]>([]);
+const entities = ref<EntityNode[]>([]);
+const relations = ref<RelationNode[]>([]);
 
-const selection = ref<SelectionType>({ type: 'Entity', id: 'ent-003' });
+const currentVersionId = ref<number | null>(null);
+const selection = ref<SelectionType>(null);
 const searchQuery = ref('');
 const isSaved = ref(true);
 const historyOpen = ref(false);
@@ -439,11 +434,11 @@ const importOpen = ref(false);
 const importState = ref<'idle' | 'analyzing' | 'error'>('idle');
 const importErrorMsg = ref('');
 
-const currentVersionLabel = ref(INITIAL_DRAFT_VERSION);
-const currentDraftDescription = ref(INITIAL_DRAFT_DESCRIPTION);
-const currentAuthor = ref('你');
-const lastSavedAt = ref<Date | null>(new Date());
-const versionHistory = ref<SchemaVersionRecord[]>([...initialVersionHistory]);
+const currentVersionLabel = ref('');
+const currentDraftDescription = ref('');
+const currentAuthor = ref('');
+const lastSavedAt = ref<Date | null>(null);
+const versionHistory = ref<SchemaVersionRecord[]>([]);
 
 const saveDialogOpen = ref(false);
 const saveDescription = ref('');
@@ -476,6 +471,51 @@ let activeDragCleanup: (() => void) | null = null;
 
 onUnmounted(() => {
 	activeDragCleanup?.();
+});
+
+async function loadCurrentSchema() {
+	try {
+		const data = await getCurrentSchema();
+		if (!data) {
+			isSaved.value = true;
+			return;
+		}
+		currentVersionId.value = data.id;
+		currentVersionLabel.value = data.version;
+		if (data.description) currentDraftDescription.value = data.description;
+		currentAuthor.value = data.author || '';
+		lastSavedAt.value = data.update_datetime ? new Date(data.update_datetime) : null;
+		communities.value = data.snapshot.communities || [];
+		entities.value = data.snapshot.entities || [];
+		relations.value = data.snapshot.relations || [];
+		if (data.snapshot.entities?.length) {
+			selection.value = { type: 'Entity', id: data.snapshot.entities[0].id };
+		}
+		isSaved.value = true;
+	} catch (err) {
+		console.error('加载 Schema 失败:', err);
+	}
+}
+
+async function loadVersionHistory() {
+	try {
+		const list = await getVersionList();
+		versionHistory.value = list.map((item) => ({
+			id: String(item.id),
+			version: item.version,
+			description: item.description || '',
+			savedAt: item.create_datetime || '',
+			author: item.author || '',
+			status: item.status,
+		}));
+	} catch (err) {
+		console.error('加载版本历史失败:', err);
+	}
+}
+
+onMounted(() => {
+	loadCurrentSchema();
+	loadVersionHistory();
 });
 
 const filteredCommunities = computed(() => {
@@ -682,20 +722,6 @@ function confirmAddRelation() {
 	ElMessage.success(t('message.pages.schema.relationAdded', { name: node.name }));
 }
 
-function applySchemaText(text: string) {
-	const parsed = parseOpenSpgSchema(text);
-	const stats = getParsedSchemaStats(parsed);
-	const workbench = parsedSchemaToWorkbench(parsed);
-	communities.value = workbench.communities;
-	entities.value = workbench.entities;
-	relations.value = workbench.relations;
-	selection.value = workbench.entities.length
-		? { type: 'Entity', id: workbench.entities[0].id }
-		: null;
-	isSaved.value = false;
-	return stats;
-}
-
 function isEntityHighlighted(ent: EntityNode) {
 	if (!selection.value) return false;
 	if (selection.value.type === 'Entity' && selection.value.id === ent.id) return true;
@@ -767,41 +793,48 @@ function resetSaveDialog() {
 	saveDescriptionError.value = '';
 }
 
-function confirmSaveDraft() {
+async function confirmSaveDraft() {
 	const description = saveDescription.value.trim();
 	if (!description) {
 		saveDescriptionError.value = t('message.pages.schema.saveDraftDescRequired');
 		return;
 	}
 
-	const now = new Date();
-	const savedVersion = currentVersionLabel.value;
-
-	versionHistory.value.unshift({
-		id: createHistoryId(),
-		version: savedVersion,
-		description,
-		savedAt: formatSchemaSavedTime(now),
-		author: currentAuthor.value,
-		status: 'draft',
-		snapshot: cloneWorkbenchSnapshot(communities.value, entities.value, relations.value),
-	});
-
-	currentVersionLabel.value = bumpDraftVersion(savedVersion);
-	currentDraftDescription.value = description;
-	lastSavedAt.value = now;
-	isSaved.value = true;
-	saveDialogOpen.value = false;
-
-	ElMessage.success(
-		t('message.pages.schema.savedWithVersion', {
-			version: savedVersion,
-		})
-	);
+	const snapshot = cloneWorkbenchSnapshot(communities.value, entities.value, relations.value);
+	try {
+		const result = await saveSchemaDraft(description, snapshot);
+		currentVersionId.value = result.id;
+		currentVersionLabel.value = result.version;
+		currentDraftDescription.value = result.description || description;
+		currentAuthor.value = result.author || '';
+		lastSavedAt.value = result.update_datetime ? new Date(result.update_datetime) : new Date();
+		isSaved.value = true;
+		saveDialogOpen.value = false;
+		loadVersionHistory();
+		ElMessage.success(
+			t('message.pages.schema.savedWithVersion', {
+				version: result.version,
+			})
+		);
+	} catch (err) {
+		ElMessage.error('保存失败');
+		console.error('保存 Schema 失败:', err);
+	}
 }
 
-function publish() {
-	ElMessage.success(t('message.pages.schema.published'));
+async function publish() {
+	try {
+		const result = await publishSchema();
+		currentVersionLabel.value = result.version;
+		currentDraftDescription.value = result.description || '';
+		currentAuthor.value = result.author || '';
+		isSaved.value = true;
+		loadVersionHistory();
+		ElMessage.success(t('message.pages.schema.published'));
+	} catch (err) {
+		ElMessage.error('发布失败');
+		console.error('发布 Schema 失败:', err);
+	}
 }
 
 function openImport() {
@@ -810,7 +843,7 @@ function openImport() {
 	importErrorMsg.value = '';
 }
 
-function onSchemaFile(e: Event) {
+async function onSchemaFile(e: Event) {
 	const input = e.target as HTMLInputElement;
 	const file = input.files?.[0];
 	if (!file) return;
@@ -818,32 +851,52 @@ function onSchemaFile(e: Event) {
 	importState.value = 'analyzing';
 	importErrorMsg.value = '';
 
-	const reader = new FileReader();
-	reader.onload = () => {
-		try {
-			const text = String(reader.result ?? '');
-			const stats = applySchemaText(text);
-			importOpen.value = false;
-			importState.value = 'idle';
-			ElMessage.success(
-				t('message.pages.schema.importSuccessDetail', {
-					entities: stats.entities,
-					relations: stats.relations,
-					namespace: stats.namespace,
-				})
-			);
-		} catch (err) {
-			importErrorMsg.value = err instanceof Error ? err.message : String(err);
-			importState.value = 'error';
-		}
-		input.value = '';
-	};
-	reader.onerror = () => {
-		importErrorMsg.value = t('message.pages.schema.importReadFailed');
+	try {
+		const result = await importSchemaFile(file);
+		communities.value = result.snapshot.communities || [];
+		entities.value = result.snapshot.entities || [];
+		relations.value = result.snapshot.relations || [];
+		selection.value = result.snapshot.entities?.length
+			? { type: 'Entity', id: result.snapshot.entities[0].id }
+			: null;
+		isSaved.value = false;
+		importOpen.value = false;
+		importState.value = 'idle';
+		ElMessage.success(
+			t('message.pages.schema.importSuccessDetail', {
+				entities: result.stats.entities,
+				relations: result.stats.relations,
+				namespace: result.stats.namespace,
+			})
+		);
+	} catch (err: any) {
+		importErrorMsg.value = err?.message || err?.error || String(err);
 		importState.value = 'error';
-		input.value = '';
-	};
-	reader.readAsText(file, 'UTF-8');
+	}
+	input.value = '';
+}
+
+function openHistory() {
+	loadVersionHistory();
+	historyOpen.value = true;
+}
+
+async function handleExport() {
+	try {
+		const result = await exportSchema();
+		const blob = new Blob([result.content], { type: 'text/plain;charset=utf-8' });
+		const elink = document.createElement('a');
+		elink.download = `${result.version}.schema`;
+		elink.href = URL.createObjectURL(blob);
+		document.body.appendChild(elink);
+		elink.click();
+		URL.revokeObjectURL(elink.href);
+		document.body.removeChild(elink);
+		ElMessage.success(t('message.pages.schema.exportToast'));
+	} catch (err) {
+		ElMessage.error('导出失败');
+		console.error('导出 Schema 失败:', err);
+	}
 }
 </script>
 

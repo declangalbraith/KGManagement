@@ -12,16 +12,6 @@ export function cloneWorkbenchSnapshot(
 	};
 }
 
-/** KB-ONT-V2.1.0-draft → KB-ONT-V2.1.1-draft */
-export function bumpDraftVersion(version: string): string {
-	const match = version.match(/^(KB-ONT-V)(\d+)\.(\d+)\.(\d+)(-draft)?$/i);
-	if (!match) {
-		return `${version}-saved`;
-	}
-	const patch = Number.parseInt(match[4], 10) + 1;
-	return `${match[1]}${match[2]}.${match[3]}.${patch}-draft`;
-}
-
 export function formatSchemaSavedTime(date: Date): string {
 	const now = new Date();
 	const isToday =
@@ -36,8 +26,4 @@ export function formatSchemaSavedTime(date: Date): string {
 	const month = String(date.getMonth() + 1).padStart(2, '0');
 	const day = String(date.getDate()).padStart(2, '0');
 	return `${date.getFullYear()}-${month}-${day} ${hh}:${mm}`;
-}
-
-export function createHistoryId(): string {
-	return `hist-${Date.now()}`;
 }

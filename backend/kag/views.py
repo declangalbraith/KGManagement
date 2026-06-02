@@ -9,12 +9,22 @@ from rest_framework.views import APIView
 
 from .config import get_kag_config
 from .models import KAGDocument, KAGProject, KAGTask
+from .graph_viz import (
+    expand_subgraph,
+    get_graph_api,
+    overview_subgraph,
+    qa_graph_bundle,
+)
+from .evidence import sanitize_for_json
 from .runtime import prepare_project_runtime
+from .build_preview import commit_subgraph, run_extract_preview
 from .serializers import (
     KAGDocumentSerializer,
     KAGProjectSerializer,
     KAGTaskSerializer,
     QARequestSerializer,
+    BuildExtractSerializer,
+    BuildCommitSerializer,
 )
 
 logger = logging.getLogger(__name__)
@@ -125,6 +135,190 @@ class BuildView(APIView):
         return {"invoked": target_file}
 
 
+def _resolve_project(request, project_id=None, project_name=None):
+    project_id = project_id or request.data.get("project_id")
+    project_name = project_name or request.data.get("project_name")
+    if project_id:
+        return get_object_or_404(KAGProject, id=project_id)
+    if project_name:
+        project, _ = KAGProject.objects.get_or_create(
+            name=project_name,
+            defaults={"display_name": project_name, "created_by": str(request.user)},
+        )
+        return project
+    return None
+
+
+class BuildExtractView(APIView):
+    """Run OpenSPG build pipeline without writing to graph (HITL preview)."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        uploaded = request.FILES.get("file")
+        if uploaded:
+            data = {"project_name": request.data.get("project_name") or "KGtestV2"}
+            raw_project_id = request.data.get("project_id")
+            if raw_project_id not in (None, ""):
+                data["project_id"] = raw_project_id
+        else:
+            data = request.data
+        serializer = BuildExtractSerializer(data=data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        project = _resolve_project(
+            request,
+            serializer.validated_data.get("project_id"),
+            serializer.validated_data.get("project_name"),
+        )
+        if not project:
+            return Response(
+                {"error": "需要 project_id 或 project_name"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        content = serializer.validated_data.get("content")
+        title = serializer.validated_data.get("title")
+        if not uploaded and not (content or "").strip():
+            return Response(
+                {"error": "需要 content 或 file"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        task = KAGTask.objects.create(
+            project=project,
+            task_type=KAGTask.TaskType.BUILD,
+            params={"mode": "extract", "title": title},
+            created_by=str(request.user),
+        )
+
+        try:
+            subgraph, _raw = run_extract_preview(
+                project.name,
+                content=content,
+                uploaded_file=uploaded,
+                title=title,
+            )
+            stats = {
+                "nodeCount": len(subgraph.get("nodes") or []),
+                "edgeCount": len(subgraph.get("links") or []),
+            }
+            task.status = KAGTask.Status.COMPLETED
+            task.result = {"mode": "extract", "stats": stats}
+            task.save()
+            return Response(
+                {"task_id": task.id, "subgraph": subgraph, "stats": stats}
+            )
+        except Exception as exc:
+            task.status = KAGTask.Status.FAILED
+            task.error_message = str(exc)
+            task.save()
+            logger.exception("Build extract failed for project %s", project.name)
+            return Response(
+                {"task_id": task.id, "status": "failed", "error": str(exc)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class BuildCommitView(APIView):
+    """Write approved subgraph to OpenSPG/Neo4j after HITL review."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = BuildCommitSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        project = _resolve_project(
+            request,
+            serializer.validated_data.get("project_id"),
+            serializer.validated_data.get("project_name"),
+        )
+        if not project:
+            return Response(
+                {"error": "需要 project_id 或 project_name"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        nodes = serializer.validated_data["nodes"]
+        links = serializer.validated_data.get("links") or []
+
+        task = KAGTask.objects.create(
+            project=project,
+            task_type=KAGTask.TaskType.BUILD,
+            params={"mode": "commit", "node_count": len(nodes), "edge_count": len(links)},
+            created_by=str(request.user),
+        )
+
+        try:
+            written = commit_subgraph(project.name, nodes, links)
+            task.status = KAGTask.Status.COMPLETED
+            task.result = {"mode": "commit", "written": written}
+            task.save()
+            return Response(
+                {
+                    "task_id": task.id,
+                    "status": "completed",
+                    "written": written,
+                }
+            )
+        except Exception as exc:
+            task.status = KAGTask.Status.FAILED
+            task.error_message = str(exc)
+            task.save()
+            logger.exception("Build commit failed for project %s", project.name)
+            return Response(
+                {"task_id": task.id, "status": "failed", "error": str(exc)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class GraphSubgraphView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        project_name = request.query_params.get("project_name") or "KGtestV2"
+        mode = request.query_params.get("mode") or "overview"
+        center_id = request.query_params.get("center_id")
+        default_limit = 40 if mode == "overview" else 200
+        try:
+            limit = int(request.query_params.get("limit") or default_limit)
+        except (TypeError, ValueError):
+            limit = default_limit
+        limit = max(1, min(limit, 500))
+
+        try:
+            graph_api = get_graph_api(project_name)
+            schema = graph_api.schema
+            from kag.common.conf import KAG_CONFIG
+
+            namespace = (KAG_CONFIG.all_config.get("project", {}) or {}).get(
+                "namespace", project_name
+            )
+            if mode == "expand":
+                if not center_id:
+                    return Response(
+                        {"error": "expand 模式需要 center_id"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                payload = expand_subgraph(
+                    graph_api, schema, center_id, limit=limit, namespace=namespace
+                )
+            else:
+                payload = overview_subgraph(
+                    graph_api, schema, limit=limit, namespace=namespace
+                )
+            return Response(payload)
+        except Exception as exc:
+            logger.exception("Graph subgraph failed for project %s", project_name)
+            return Response(
+                {"error": str(exc)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
 class QAView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -137,6 +331,9 @@ class QAView(APIView):
         project_id = serializer.validated_data.get("project_id")
         project_name = request.data.get("project_name") or "KGtestV2"
         include_evidence = request.data.get("include_evidence", False)
+        include_graph = request.data.get("include_graph", False)
+        if include_graph:
+            include_evidence = True
 
         if project_id:
             project = get_object_or_404(KAGProject, id=project_id)
@@ -159,14 +356,32 @@ class QAView(APIView):
                 question, project_name, include_evidence
             )
             task.status = KAGTask.Status.COMPLETED
+            safe_evidence = (
+                sanitize_for_json(evidence_list) if include_evidence else None
+            )
             result = {"answer": answer}
             if include_evidence:
-                result["evidence"] = evidence_list
+                result["evidence"] = safe_evidence
             task.result = result
             task.save()
             response = {"answer": answer, "task_id": task.id}
             if include_evidence:
-                response["evidence"] = evidence_list
+                response["evidence"] = safe_evidence
+            if include_graph:
+                from kag.common.conf import KAG_CONFIG
+
+                graph_api = get_graph_api(project_name)
+                namespace = (KAG_CONFIG.all_config.get("project", {}) or {}).get(
+                    "namespace", project_name
+                )
+                bundle = qa_graph_bundle(
+                    graph_api,
+                    graph_api.schema,
+                    evidence_list,
+                    namespace=namespace,
+                )
+                response["highlight_node_ids"] = bundle["highlight_node_ids"]
+                response["subgraph_delta"] = bundle["subgraph_delta"]
             return Response(response)
         except Exception as exc:
             task.status = KAGTask.Status.FAILED

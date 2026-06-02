@@ -378,7 +378,7 @@ class Command(BaseCommand):
     help = "KGtestV2 图谱清洗与去重检查"
 
     def add_arguments(self, parser):
-        parser.add_argument("--uri", default="bolt://106.13.174.178:17688")
+        parser.add_argument("--uri", default="bolt://117.62.232.51:17688")
         parser.add_argument("--user", default="neo4j")
         parser.add_argument("--password", default="neo4j@openspg")
         parser.add_argument("--database", default="kgtestv2")

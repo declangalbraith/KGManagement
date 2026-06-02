@@ -61,6 +61,7 @@ INSTALLED_APPS = [
     "channels",
     "dvadmin.system",
     "kag",
+    "schema_manager",
 ]
 
 MIDDLEWARE = [
