@@ -42,6 +42,11 @@ COLUMN_EXCLUDE_APPS = []
 # ================================================= #
 KAG_PROJECT_ROOT = os.path.join(BASE_DIR, "kag", "kag_projects")
 
+# ================================================= #
+# *************** Schema 初始文件  *************** #
+# ================================================= #
+SCHEMA_INIT_FILE = os.path.join(KAG_PROJECT_ROOT, "KGtestV2", "schema", "KGtestV2.schema")
+
 # LLM SiliconFlow API
 KAG_LLM_OPENIE_BASE_URL = "https://api.siliconflow.cn/v1"
 KAG_LLM_OPENIE_API_KEY = "sk-yrwobvrcxtpyxaqecbqqkqoacxcxpexeiteyywznyiebavng"
@@ -58,7 +63,7 @@ KAG_EMBEDDING_MODEL = "BAAI/bge-m3"
 KAG_EMBEDDING_DIMENSIONS = 1024
 
 # Neo4j
-KAG_NEO4J_URI = "bolt://106.13.174.178:17688"
+KAG_NEO4J_URI = "bolt://117.62.232.51:17688"
 KAG_NEO4J_USER = "neo4j"
 KAG_NEO4J_PASSWORD = "neo4j@openspg"
 KAG_NEO4J_DATABASE = "kgtestv2"

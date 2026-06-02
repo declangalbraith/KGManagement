@@ -75,6 +75,33 @@ def _short(text, n=260):
     return s if len(s) <= n else s[:n] + "..."
 
 
+def _coerce_scalar(value):
+    """Convert KAG model objects (Identifier, TypeInfo, etc.) to JSON-safe scalars."""
+    if value is None or isinstance(value, (bool, int, float, str)):
+        return value
+    std = getattr(value, "std_entity_type", None)
+    if std is not None:
+        return str(std)
+    un_std = getattr(value, "un_std_entity_type", None)
+    if un_std is not None:
+        return str(un_std)
+    alias = getattr(value, "alias_name", None)
+    if alias is not None:
+        return str(alias)
+    return str(value)
+
+
+def sanitize_for_json(obj):
+    """Recursively convert evidence/task payloads to JSON-serializable structures."""
+    if obj is None or isinstance(obj, (bool, int, float, str)):
+        return obj
+    if isinstance(obj, dict):
+        return {str(k): sanitize_for_json(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [sanitize_for_json(v) for v in obj]
+    return _coerce_scalar(obj)
+
+
 def _extract_graph_entities(kg_graph):
     out = []
     emap = getattr(kg_graph, "entity_map", None) or {}
@@ -83,9 +110,16 @@ def _extract_graph_entities(kg_graph):
             ent_list = [ent_list]
         for ent in ent_list:
             name = getattr(ent, "name", None) or getattr(ent, "biz_id", None) or str(ent)
-            etype = getattr(ent, "type", None) or "?"
+            etype = _coerce_scalar(getattr(ent, "type", None) or "?")
             biz_id = getattr(ent, "biz_id", "") or ""
-            out.append({"alias": alias, "name": name, "type": etype, "biz_id": biz_id})
+            out.append(
+                {
+                    "alias": _coerce_scalar(alias),
+                    "name": _coerce_scalar(name),
+                    "type": etype,
+                    "biz_id": str(biz_id),
+                }
+            )
     return out
 
 

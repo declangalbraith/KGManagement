@@ -122,6 +122,8 @@ urlpatterns = (
             path('sse/', sse_view, name='sse'),
             # KAG 知识图谱
             path('api/kag/', include('kag.urls')),
+            # Schema 本体设计
+            path('api/schema/', include('schema_manager.urls')),
         ]
         + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
         + static(settings.STATIC_URL, document_root=settings.STATIC_URL)

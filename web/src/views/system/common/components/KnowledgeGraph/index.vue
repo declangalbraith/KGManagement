@@ -36,21 +36,31 @@
 			</div>
 			<footer class="kg-graph__chat-foot">
 				<div class="kg-graph__quick">
-					<button type="button" @click="executeQuery('分析跨项目制动盘共性故障及根因')">
+					<button
+						type="button"
+						:disabled="isQuerying"
+						@click="executeQuery(t('message.pages.knowledge.graph.quickQuery1Question'))"
+					>
 						{{ t('message.pages.knowledge.graph.quickQuery1') }}
 					</button>
-					<button type="button" @click="executeQuery('查询闸瓦脱落的完整解决链路')">
+					<button
+						type="button"
+						:disabled="isQuerying"
+						@click="executeQuery(t('message.pages.knowledge.graph.quickQuery2Question'))"
+					>
 						{{ t('message.pages.knowledge.graph.quickQuery2') }}
 					</button>
 				</div>
 				<div class="kg-graph__chat-input">
 					<input
 						v-model="chatInput"
+						:disabled="isQuerying"
 						:placeholder="t('message.pages.knowledge.graph.chatPlaceholder')"
 						@keydown.enter="handleSendQA"
 					/>
-					<button type="button" class="kg-graph__send" @click="handleSendQA">
-						<el-icon><Promotion /></el-icon>
+					<button type="button" class="kg-graph__send" :disabled="isQuerying" @click="handleSendQA">
+						<el-icon v-if="isQuerying" class="is-spin"><Loading /></el-icon>
+						<el-icon v-else><Promotion /></el-icon>
 					</button>
 				</div>
 			</footer>
@@ -91,14 +101,22 @@
 				</div>
 			</header>
 			<div ref="containerRef" class="kg-graph__canvas">
-				<svg ref="svgRef" class="kg-graph__svg" />
-				<div class="kg-graph__legend">
+				<div v-if="graphLoading" class="kg-graph__canvas-loading">
+					<el-icon class="is-spin"><Loading /></el-icon>
+					<span>{{ t('message.pages.knowledge.graph.loading') }}</span>
+				</div>
+				<div v-else-if="graphError" class="kg-graph__canvas-error">
+					<p>{{ graphError }}</p>
+					<button type="button" @click="loadOverviewGraph">{{ t('message.pages.knowledge.graph.retry') }}</button>
+				</div>
+				<svg v-show="!graphLoading && !graphError" ref="svgRef" class="kg-graph__svg" />
+				<div v-if="!graphLoading && !graphError" class="kg-graph__legend">
 					<div class="kg-graph__legend-title">
 						<el-icon><Filter /></el-icon>
 						{{ t('message.pages.knowledge.graph.nodeFilter') }}
 					</div>
 					<button
-						v-for="(cfg, type) in graphTypeConfig"
+						v-for="(cfg, type) in typeLegendConfig"
 						:key="type"
 						type="button"
 						class="kg-graph__legend-item"
@@ -116,9 +134,9 @@
 		<aside v-if="selectedNode" class="kg-graph__detail kg-glass">
 			<header class="kg-graph__detail-head">
 				<div class="kg-graph__detail-top">
-					<span class="kg-graph__type-badge" :style="{ background: graphTypeConfig[selectedNode.type].color }">
-						{{ graphTypeConfig[selectedNode.type].icon }}
-						{{ graphTypeConfig[selectedNode.type].label }}
+					<span class="kg-graph__type-badge" :style="{ background: legendForNode(selectedNode).color }">
+						{{ legendForNode(selectedNode).icon }}
+						{{ legendForNode(selectedNode).label }}
 					</span>
 					<button type="button" class="kg-graph__detail-close" @click="selectedNode = null">
 						<el-icon><Close /></el-icon>
@@ -128,16 +146,12 @@
 				<code>{{ selectedNode.id }}</code>
 			</header>
 			<div class="kg-graph__detail-body">
-				<div v-if="selectedNode.occurrences !== undefined || selectedNode.confidence !== undefined" class="kg-graph__metrics">
-					<div v-if="selectedNode.occurrences !== undefined" class="kg-graph__metric">
-						<span>{{ t('message.pages.knowledge.graph.occurrences') }}</span>
-						<strong>{{ selectedNode.occurrences }} <small>{{ t('message.pages.knowledge.graph.times') }}</small></strong>
-					</div>
-					<div v-if="selectedNode.confidence !== undefined" class="kg-graph__metric">
-						<span>{{ t('message.pages.knowledge.graph.confidence') }}</span>
-						<strong class="is-green">{{ (selectedNode.confidence * 100).toFixed(0) }}%</strong>
-					</div>
-				</div>
+				<ul v-if="selectedNodeProperties.length" class="kg-graph__props">
+					<li v-for="(row, i) in selectedNodeProperties" :key="i">
+						<span>{{ row.key }}</span>
+						<strong>{{ row.value }}</strong>
+					</li>
+				</ul>
 				<h4>
 					<el-icon><Share /></el-icon>
 					{{ t('message.pages.knowledge.graph.relations') }}
@@ -150,35 +164,18 @@
 					>
 						<div class="kg-graph__rel-meta">
 							<span class="kg-graph__rel-label">{{ rel.isSource ? rel.link.label : `${rel.link.label} (${t('message.pages.knowledge.graph.passive')})` }}</span>
-							<span :style="{ color: graphTypeConfig[rel.node.type].color }">
-								{{ graphTypeConfig[rel.node.type].icon }} {{ graphTypeConfig[rel.node.type].label }}
+							<span :style="{ color: legendForNode(rel.node).color }">
+								{{ legendForNode(rel.node).icon }} {{ legendForNode(rel.node).label }}
 							</span>
 						</div>
 						<span class="kg-graph__rel-name">{{ rel.node.label }}</span>
 					</li>
 				</ul>
 			</div>
-			<footer class="kg-graph__detail-foot">
-				<button
-					v-if="selectedNode.type === 'QualityDoc'"
-					type="button"
-					class="kg-graph__btn-primary"
-					@click="goQualityDoc(selectedNode.id)"
-				>
-					<el-icon><Link /></el-icon>
-					{{ t('message.pages.knowledge.graph.viewDoc') }}
-				</button>
-				<button v-else type="button" class="kg-graph__btn-primary" @click="onViewReport">
+			<footer v-if="selectedNode.spgType === 'EightDReport'" class="kg-graph__detail-foot">
+				<button type="button" class="kg-graph__btn-primary" @click="onViewReport">
 					<el-icon><Link /></el-icon>
 					{{ t('message.pages.knowledge.graph.viewReport') }}
-				</button>
-				<button
-					v-if="selectedNode.type === 'Cause'"
-					type="button"
-					class="kg-graph__btn-outline"
-					@click="onCreate8d"
-				>
-					{{ t('message.pages.knowledge.graph.create8d') }}
 				</button>
 			</footer>
 		</aside>
@@ -187,7 +184,6 @@
 
 <script setup lang="ts" name="KnowledgeGraph">
 import { computed, nextTick, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue';
-import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { ElMessage } from 'element-plus';
 import * as d3 from 'd3';
@@ -197,6 +193,7 @@ import {
 	Filter,
 	FullScreen,
 	Link,
+	Loading,
 	MagicStick,
 	Promotion,
 	Search,
@@ -206,8 +203,16 @@ import {
 	ZoomIn,
 	ZoomOut,
 } from '@element-plus/icons-vue';
-import type { GraphLink, GraphNode, GraphNodeType } from '../../graph/types';
-import { graphChatWelcome, graphTypeConfig, rawGraphLinks, rawGraphNodes } from '../../graph/mock';
+import {
+	fetchGraphSubgraph,
+	kagAsk,
+	type GraphSubgraphDelta,
+	type GraphTypeLegendItem,
+} from '/@/api/business/kag';
+import { focusGraphCluster, HIGHLIGHT_CLUSTER_MAX_NODES, MAX_CLUSTER_NODES } from '../../graph/cluster';
+import type { GraphLink, GraphNode } from '../../graph/types';
+import { FALLBACK_LEGEND, mapApiLink, mapApiNode } from '../../graph/utils';
+import { graphChatWelcome } from '../../graph/mock';
 
 interface ChatMessage {
 	id: string;
@@ -217,7 +222,6 @@ interface ChatMessage {
 }
 
 const { t } = useI18n();
-const router = useRouter();
 
 const containerRef = ref<HTMLDivElement | null>(null);
 const svgRef = ref<SVGSVGElement | null>(null);
@@ -225,11 +229,96 @@ const chatScrollRef = ref<HTMLDivElement | null>(null);
 
 const searchQuery = ref('');
 const chatInput = ref('');
-const visibleTypes = ref(new Set<GraphNodeType>(Object.keys(graphTypeConfig) as GraphNodeType[]));
+const graphNodes = ref<GraphNode[]>([]);
+const graphLinks = ref<GraphLink[]>([]);
+const typeLegend = ref<Record<string, GraphTypeLegendItem>>({});
+const visibleTypes = ref<Set<string>>(new Set());
+const graphLoading = ref(true);
+const graphError = ref('');
 const selectedNode = shallowRef<GraphNode | null>(null);
 const activeHighlight = ref<string[] | null>(null);
 
 const chatHistory = ref<ChatMessage[]>([{ id: 'msg-0', role: 'ai', content: graphChatWelcome }]);
+const isQuerying = ref(false);
+
+const typeLegendConfig = computed(() => ({ ...FALLBACK_LEGEND, ...typeLegend.value }));
+
+const selectedNodeProperties = computed(() => {
+	const node = selectedNode.value;
+	if (!node?.properties) return [];
+	const skip = new Set(['id', 'name', 'biz_node_id', 'gdb_timestamp']);
+	return Object.entries(node.properties)
+		.filter(([k, v]) => !skip.has(k) && v != null && String(v).trim() !== '')
+		.slice(0, 12)
+		.map(([key, value]) => ({ key, value: String(value) }));
+});
+
+function legendForNode(node: GraphNode): GraphTypeLegendItem {
+	return typeLegendConfig.value[node.spgType] || FALLBACK_LEGEND.other;
+}
+
+function applyTypeLegend(legend?: Record<string, GraphTypeLegendItem>) {
+	if (!legend) return;
+	typeLegend.value = { ...typeLegend.value, ...legend };
+	visibleTypes.value = new Set(Object.keys(typeLegendConfig.value));
+}
+
+function applyFocusedGraph(
+	rawNodes: GraphNode[],
+	rawLinks: GraphLink[],
+	seedIds?: string[] | null,
+	legend?: Record<string, GraphTypeLegendItem>,
+	maxNodes: number = MAX_CLUSTER_NODES,
+) {
+	const { nodes, links } = focusGraphCluster(rawNodes, rawLinks, seedIds, maxNodes);
+	graphNodes.value = nodes;
+	graphLinks.value = links;
+	if (legend) applyTypeLegend(legend);
+	else {
+		const nextLegend: Record<string, GraphTypeLegendItem> = {};
+		for (const n of nodes) {
+			const item = typeLegend.value[n.spgType] || typeLegendConfig.value[n.spgType];
+			if (item && !nextLegend[n.spgType]) nextLegend[n.spgType] = item;
+		}
+		typeLegend.value = nextLegend;
+	}
+	visibleTypes.value = new Set(Object.keys(typeLegendConfig.value));
+}
+
+function replaceGraphFromDelta(delta?: GraphSubgraphDelta | null, seedIds?: string[] | null) {
+	if (!delta?.nodes?.length) return;
+	const nodes = (delta.nodes || []).map(mapApiNode);
+	const links = (delta.links || []).map(mapApiLink);
+	applyFocusedGraph(nodes, links, seedIds, delta.typeLegend, HIGHLIGHT_CLUSTER_MAX_NODES);
+}
+
+async function loadOverviewGraph() {
+	graphLoading.value = true;
+	graphError.value = '';
+	try {
+		const payload = await fetchGraphSubgraph({ mode: 'overview', limit: MAX_CLUSTER_NODES });
+		const nodes = (payload.nodes || []).map(mapApiNode);
+		const links = (payload.links || []).map(mapApiLink);
+		if (!nodes.length) {
+			const apiErr = (payload as { error?: string }).error;
+			graphError.value = apiErr || t('message.pages.knowledge.graph.empty');
+			return;
+		}
+		applyFocusedGraph(nodes, links, null, payload.typeLegend);
+		if (payload.truncated) {
+			ElMessage.warning(t('message.pages.knowledge.graph.truncated'));
+		}
+		// Must finish loading before buildGraph — it no-ops while graphLoading is true.
+		graphLoading.value = false;
+		await nextTick();
+		buildGraph();
+	} catch (err) {
+		graphError.value = t('message.pages.knowledge.graph.loadFailed');
+		console.error(err);
+	} finally {
+		graphLoading.value = false;
+	}
+}
 
 const selectedNodeRef = ref<GraphNode | null>(null);
 const searchQueryRef = ref('');
@@ -237,6 +326,25 @@ const activeHighlightRef = ref<string[] | null>(null);
 
 let simulation: d3.Simulation<GraphNode, GraphLink> | null = null;
 let zoomBehavior: d3.ZoomBehavior<SVGSVGElement, unknown> | null = null;
+let graphGroupEl: d3.Selection<SVGGElement, unknown, null, undefined> | null = null;
+
+function fitGraphToView(width: number, height: number) {
+	if (!svgRef.value || !zoomBehavior || !graphGroupEl) return;
+	const node = graphGroupEl.node();
+	if (!node) return;
+	const bbox = node.getBBox();
+	if (!bbox.width || !bbox.height) return;
+	const pad = 48;
+	const scale = Math.min(
+		(width - pad * 2) / bbox.width,
+		(height - pad * 2) / bbox.height,
+		2.5,
+	);
+	const tx = width / 2 - scale * (bbox.x + bbox.width / 2);
+	const ty = height / 2 - scale * (bbox.y + bbox.height / 2);
+	const transform = d3.zoomIdentity.translate(tx, ty).scale(Math.max(scale, 0.15));
+	d3.select(svgRef.value).transition().duration(500).call(zoomBehavior.transform, transform);
+}
 
 const colorScale = d3
 	.scaleOrdinal<number, string>()
@@ -245,7 +353,7 @@ const colorScale = d3
 
 const linkedByIndex = computed(() => {
 	const map: Record<string, boolean> = {};
-	rawGraphLinks.forEach((d) => {
+	graphLinks.value.forEach((d) => {
 		const s = typeof d.source === 'string' ? d.source : d.source.id;
 		const t = typeof d.target === 'string' ? d.target : d.target.id;
 		map[`${s},${t}`] = true;
@@ -256,14 +364,14 @@ const linkedByIndex = computed(() => {
 
 const relatedLinks = computed(() => {
 	if (!selectedNode.value) return [];
-	return rawGraphLinks
+	return graphLinks.value
 		.map((l) => {
 			const sId = typeof l.source === 'string' ? l.source : l.source.id;
 			const tId = typeof l.target === 'string' ? l.target : l.target.id;
 			if (sId !== selectedNode.value!.id && tId !== selectedNode.value!.id) return null;
 			const isSource = sId === selectedNode.value!.id;
 			const relatedId = isSource ? tId : sId;
-			const node = rawGraphNodes.find((n) => n.id === relatedId);
+			const node = graphNodes.value.find((n) => n.id === relatedId);
 			if (!node) return null;
 			return { link: l, node, isSource };
 		})
@@ -332,8 +440,14 @@ function applySearchStroke() {
 		});
 }
 
+function nodeRadius(d: GraphNode) {
+	if (d.vizType === 'report' || d.vizType === 'product') return 26;
+	if (d.vizType === 'event' || d.vizType === 'failure') return 24;
+	return 20;
+}
+
 function buildGraph() {
-	if (!svgRef.value || !containerRef.value) return;
+	if (!svgRef.value || !containerRef.value || graphLoading.value || graphError.value) return;
 	simulation?.stop();
 
 	const width = containerRef.value.clientWidth;
@@ -342,9 +456,19 @@ function buildGraph() {
 	svg.selectAll('*').remove();
 	svg.attr('width', width).attr('height', height);
 
-	const nodes = rawGraphNodes.filter((n) => visibleTypes.value.has(n.type)).map((d) => ({ ...d }));
+	if (!graphNodes.value.length) return;
+
+	const nodes = graphNodes.value.filter((n) => visibleTypes.value.has(n.spgType)).map((d) => ({ ...d }));
+	const cx = width / 2;
+	const cy = height / 2;
+	const initR = Math.min(width, height) * 0.28;
+	nodes.forEach((n, i) => {
+		const a = (2 * Math.PI * i) / Math.max(nodes.length, 1);
+		n.x = cx + initR * Math.cos(a);
+		n.y = cy + initR * Math.sin(a);
+	});
 	const nodeIds = new Set(nodes.map((n) => n.id));
-	const links = rawGraphLinks
+	const links = graphLinks.value
 		.filter((l) => {
 			const s = typeof l.source === 'string' ? l.source : l.source.id;
 			const t = typeof l.target === 'string' ? l.target : l.target.id;
@@ -353,6 +477,7 @@ function buildGraph() {
 		.map((d) => ({ ...d }));
 
 	const g = svg.append('g');
+	graphGroupEl = g;
 
 	zoomBehavior = d3
 		.zoom<SVGSVGElement, unknown>()
@@ -466,7 +591,7 @@ function buildGraph() {
 
 	node
 		.append('circle')
-		.attr('r', (d) => (d.type === 'Project' || d.type === 'Product' ? 26 : d.type === 'Issue' ? 24 : 20))
+		.attr('r', (d) => nodeRadius(d))
 		.attr('fill', (d) => colorScale(d.group))
 		.attr('stroke', '#fff')
 		.attr('stroke-width', 2)
@@ -480,7 +605,7 @@ function buildGraph() {
 		.attr('font-size', '14px')
 		.attr('fill', '#fff')
 		.attr('pointer-events', 'none')
-		.text((d) => graphTypeConfig[d.type].icon);
+		.text((d) => legendForNode(d).icon);
 
 	node
 		.append('text')
@@ -497,6 +622,14 @@ function buildGraph() {
 		activeHighlight.value = null;
 	});
 
+	let fitScheduled = false;
+	const scheduleFit = () => {
+		if (fitScheduled) return;
+		fitScheduled = true;
+		window.requestAnimationFrame(() => fitGraphToView(width, height));
+	};
+	const fitFallbackTimer = window.setTimeout(scheduleFit, 1400);
+
 	simulation.on('tick', () => {
 		link.attr('x1', (d) => (d.source as GraphNode).x!)
 			.attr('y1', (d) => (d.source as GraphNode).y!)
@@ -507,12 +640,16 @@ function buildGraph() {
 			.attr('y', (d) => ((d.source as GraphNode).y! + (d.target as GraphNode).y!) / 2 - 5);
 		node.attr('transform', (d) => `translate(${d.x},${d.y})`);
 	});
+	simulation.on('end', () => {
+		window.clearTimeout(fitFallbackTimer);
+		scheduleFit();
+	});
 
 	updateGraphStyles();
 	applySearchStroke();
 }
 
-function toggleType(type: GraphNodeType) {
+function toggleType(type: string) {
 	const next = new Set(visibleTypes.value);
 	if (next.has(type)) next.delete(type);
 	else next.add(type);
@@ -535,54 +672,83 @@ function handleZoomOut() {
 }
 
 function handleResetZoom() {
-	if (svgRef.value && zoomBehavior) {
-		d3.select(svgRef.value).transition().duration(500).call(zoomBehavior.transform, d3.zoomIdentity);
+	if (!containerRef.value) return;
+	const w = containerRef.value.clientWidth;
+	const h = containerRef.value.clientHeight || 600;
+	fitGraphToView(w, h);
+}
+
+function resolveKagErrorMessage(err: unknown): string {
+	const fallback = t('message.pages.knowledge.graph.queryFailed');
+	if (!err || typeof err !== 'object') return fallback;
+	const ax = err as { response?: { data?: { error?: string; detail?: string } }; message?: string };
+	const data = ax.response?.data;
+	if (data?.error) return data.error;
+	if (data?.detail) return typeof data.detail === 'string' ? data.detail : fallback;
+	if (ax.message?.includes('timeout')) return fallback;
+	return fallback;
+}
+
+function replaceChatMessage(id: string, patch: Partial<ChatMessage> & Pick<ChatMessage, 'content'>) {
+	const idx = chatHistory.value.findIndex((m) => m.id === id);
+	if (idx === -1) return;
+	chatHistory.value[idx] = { ...chatHistory.value[idx], ...patch, id: String(Date.now()) };
+}
+
+async function executeQuery(query: string) {
+	if (isQuerying.value) return;
+
+	chatHistory.value.push({ id: String(Date.now()), role: 'user', content: query });
+	selectedNode.value = null;
+
+	const pendingId = `pending-${Date.now()}`;
+	chatHistory.value.push({
+		id: pendingId,
+		role: 'ai',
+		content: t('message.pages.knowledge.graph.querying'),
+	});
+	isQuerying.value = true;
+	scrollChat();
+
+	try {
+		const res = await kagAsk(query, { includeEvidence: true, includeGraph: true });
+		const text = res.answer?.trim() || t('message.pages.knowledge.graph.queryEmpty');
+		const highlight = res.highlight_node_ids?.length ? res.highlight_node_ids : null;
+		if (res.subgraph_delta?.nodes?.length) {
+			replaceGraphFromDelta(res.subgraph_delta, highlight);
+		} else if (highlight?.length) {
+			applyFocusedGraph(
+				graphNodes.value,
+				graphLinks.value,
+				highlight,
+				undefined,
+				HIGHLIGHT_CLUSTER_MAX_NODES,
+			);
+		}
+		activeHighlight.value = highlight;
+		await nextTick();
+		buildGraph();
+		replaceChatMessage(pendingId, {
+			role: 'ai',
+			content: text,
+			highlightNodes: highlight || undefined,
+		});
+	} catch (err) {
+		replaceChatMessage(pendingId, {
+			role: 'ai',
+			content: resolveKagErrorMessage(err),
+		});
+	} finally {
+		isQuerying.value = false;
+		scrollChat();
 	}
 }
 
-function executeQuery(query: string) {
-	chatHistory.value.push({ id: String(Date.now()), role: 'user', content: query });
-	selectedNode.value = null;
-	scrollChat();
-
-	setTimeout(() => {
-		let responseContent = '';
-		let highlightIds: string[] = [];
-
-		if (query.includes('跨项目') && query.includes('制动盘')) {
-			responseContent =
-				'已为您深度检索跨项目（地铁1号线、高铁CRH380）中与【制动盘】相关的所有故障。共发现 2 类主要故障（异常磨损、偏磨异响），核心根因指向【材质过硬】与【夹钳安装不平行】。图谱已为您高亮相关链路。';
-			highlightIds = [
-				'PROJ-A', 'PROJ-B', 'PROD-X', 'PROD-Y', 'COMP-002', 'ISS-001', 'ISS-002',
-				'CAUSE-001', 'CAUSE-002', 'CAUSE-003', 'SOL-001', 'SOL-002', 'SOL-003', 'DOC-001',
-			];
-		} else if (query.includes('闸瓦脱落')) {
-			responseContent =
-				'已为您检索【闸瓦异常脱落】的完整解决链路。该问题主要发生在 A型车（地铁1号线），核心根因为【固定螺栓松动】，标准解决措施为【增加防松标记】。图谱已为您高亮。';
-			highlightIds = ['PROJ-A', 'PROD-X', 'COMP-001', 'ISS-003', 'CAUSE-004', 'SOL-004', 'DOC-002'];
-		} else {
-			responseContent = `关于“${query}”的检索结果：已在图谱中为您匹配相关节点。您可以点击高亮节点查看详细业务指标。`;
-			highlightIds = rawGraphNodes
-				.filter((n) => n.label.includes(query) || query.includes(n.label))
-				.map((n) => n.id);
-			if (!highlightIds.length) highlightIds = rawGraphNodes.map((n) => n.id);
-		}
-
-		chatHistory.value.push({
-			id: String(Date.now() + 1),
-			role: 'ai',
-			content: responseContent,
-			highlightNodes: highlightIds,
-		});
-		activeHighlight.value = highlightIds;
-		scrollChat();
-	}, 600);
-}
-
 function handleSendQA() {
-	if (!chatInput.value.trim()) return;
-	executeQuery(chatInput.value.trim());
+	if (isQuerying.value || !chatInput.value.trim()) return;
+	const text = chatInput.value.trim();
 	chatInput.value = '';
+	executeQuery(text);
 }
 
 function scrollChat() {
@@ -596,11 +762,6 @@ function scrollChat() {
 function onRelatedClick(node: GraphNode) {
 	selectedNode.value = node;
 	activeHighlight.value = null;
-}
-
-function goQualityDoc(id: string) {
-	const slug = id.toLowerCase().replace('doc-', 'doc-');
-	router.push(`/document-management/quality/${slug}`);
 }
 
 function onViewReport() {
@@ -631,7 +792,7 @@ watch(chatHistory, () => scrollChat(), { deep: true });
 let resizeObserver: ResizeObserver | null = null;
 
 onMounted(() => {
-	buildGraph();
+	loadOverviewGraph();
 	if (containerRef.value) {
 		resizeObserver = new ResizeObserver(() => buildGraph());
 		resizeObserver.observe(containerRef.value);
@@ -775,7 +936,11 @@ onUnmounted(() => {
 		font-size: 11px;
 		color: #475569;
 		cursor: pointer;
-		&:hover {
+		&:disabled {
+			cursor: not-allowed;
+			opacity: 0.55;
+		}
+		&:hover:not(:disabled) {
 			background: #1a1a1a;
 			color: #fff;
 		}
@@ -813,8 +978,21 @@ onUnmounted(() => {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	&:hover {
+	&:hover:not(:disabled) {
 		background: rgba(59, 130, 246, 0.1);
+	}
+	&:disabled {
+		cursor: not-allowed;
+		opacity: 0.55;
+	}
+	.is-spin {
+		animation: kg-graph-spin 0.8s linear infinite;
+	}
+}
+
+@keyframes kg-graph-spin {
+	to {
+		transform: rotate(360deg);
 	}
 }
 
@@ -926,6 +1104,56 @@ onUnmounted(() => {
 	flex: 1;
 	background: #f8fafc;
 	overflow: hidden;
+}
+
+.kg-graph__canvas-loading,
+.kg-graph__canvas-error {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 12px;
+	color: #64748b;
+	font-size: 13px;
+	z-index: 2;
+	background: #f8fafc;
+	.is-spin {
+		animation: kg-graph-spin 0.8s linear infinite;
+		font-size: 28px;
+	}
+	button {
+		border: none;
+		background: var(--el-color-primary);
+		color: #fff;
+		padding: 6px 14px;
+		border-radius: 6px;
+		cursor: pointer;
+	}
+}
+
+.kg-graph__props {
+	list-style: none;
+	margin: 0 0 16px;
+	padding: 0;
+	li {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		padding: 8px 0;
+		border-bottom: 1px solid #f1f5f9;
+		span {
+			font-size: 11px;
+			color: #94a3b8;
+		}
+		strong {
+			font-size: 12px;
+			color: #334155;
+			font-weight: 500;
+			word-break: break-word;
+		}
+	}
 }
 
 .kg-graph__svg {
