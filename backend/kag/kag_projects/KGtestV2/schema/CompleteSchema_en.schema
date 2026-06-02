@@ -1,0 +1,473 @@
+namespace CompleteSchema
+
+############################################
+# 1. Windchill Master Data Domain
+############################################
+
+ProductModel(Product Model): EntityType
+	desc: The design model of a product (e.g. EP2002 valve / Air Supply Unit). In Knorr-Bremse context this maps to a finished-goods material number.
+	properties:
+		modelCode(Model Code): Text
+			index: Text
+			constraint: NotNull,Unique
+		modelName(Model Name): Text
+			index: Text
+		productLine(Product Line): Text
+			index: Text                       # Brake / AirSupply / Door / HVAC
+		productFamily(Product Family): Text
+			index: Text
+		manufacturerName(Manufacturer Name): Text
+			index: Text
+	relations:
+		manufacturer(Manufacturer): Organization
+		hasBOM(Has BOM): BOMStructure
+		hasInstance(Has Instance): ProductInstance
+
+ProductInstance(Product Instance): EntityType
+	desc: A specific physical machine that has been shipped, uniquely identified by its product serial number.
+	properties:
+		serialNumber(Serial Number): Text
+			index: Text
+			constraint: NotNull,Unique
+		commissionDate(Commission Date): Text
+		deliveryWeek(Delivery Week): Text
+			index: Text                       # e.g. 2021W44, used for recall scoping
+		status(Status): Text
+			index: Text
+		ownerName(Owner Name): Text
+			index: Text
+		siteCity(Site City): Text
+			index: Text
+	relations:
+		basedOnModel(Based On Model): ProductModel
+		ownedBy(Owned By): Organization
+		hasCurrentPart(Has Current Part): PartSerial
+		inBatchScope(In Batch Scope): BatchScope
+
+BOMStructure(BOM Structure): EntityType
+	desc: The handle of a BOM tree, bound to a ProductModel, versioned.
+	properties:
+		bomCode(BOM Code): Text
+			index: Text
+			constraint: NotNull,Unique
+		bomVersion(BOM Version): Text
+			index: Text
+		effectiveDate(Effective Date): Text
+	relations:
+		belongsToModel(Belongs To Model): ProductModel
+		hasRootNode(Has Root Node): BOMNode
+
+BOMNode(BOM Node): EntityType
+	desc: A node on the BOM tree representing an installation position. Can point to a concrete Part, or to a PartFamily on a generic BOM.
+	properties:
+		nodeId(Node ID): Text
+			index: Text
+			constraint: NotNull,Unique
+		positionCode(Position Code): Text
+			index: Text
+		bomLevel(BOM Level): Text
+		quantity(Quantity): Text
+		nodeName(Node Name): Text
+			index: Text
+	relations:
+		belongsToBOM(Belongs To BOM): BOMStructure
+		parentNode(Parent Node): BOMNode
+		ofPart(Of Part): Part                          # On a concrete BOM, resolves to a specific model
+		ofPartFamily(Of Part Family): PartFamily       # On a generic BOM, points to a family
+		replacementCandidate(Replacement Candidate): Part
+		hasFailureMode(Has Failure Mode): FailureMode
+
+PartFamily(Part Family): EntityType
+	desc: A set of functionally equivalent specification-similar design parts (e.g. pressure switch for Air Supply Unit) under which concrete Parts such as silver-contact or gold-contact are grouped.
+	properties:
+		familyCode(Family Code): Text
+			index: Text
+			constraint: NotNull,Unique
+		familyName(Family Name): Text
+			index: Text
+		categoryPath(Category Path): Text
+			index: Text                       # e.g. Pneumatic/PressureSwitch/AirSupplyUnitPressureSwitch
+		commonSpec(Common Spec): Text
+			index: TextAndVector
+	relations:
+		parentFamily(Parent Family): PartFamily
+		preferredPart(Preferred Part): Part             # Currently preferred concrete Part; 8D switches update this
+
+Part(Part): EntityType
+	desc: A design part model (e.g. Barksdale 923-1326 silver-contact pressure switch / SUCO gold-contact pressure switch).
+	properties:
+		partNo(Part No): Text
+			index: Text
+			constraint: NotNull,Unique
+		partName(Part Name): Text
+			index: Text
+		partType(Part Type): Text
+			index: Text
+		manufacturerName(Manufacturer Name): Text
+			index: Text
+		keySpec(Key Spec): Text
+			index: Text                       # e.g. contactMaterial=silver/gold, used to distinguish within a family
+	relations:
+		belongsToFamily(Belongs To Family): PartFamily
+		manufacturer(Manufacturer): Organization
+		hasFailureMode(Has Failure Mode): FailureMode
+		inBatchScope(In Batch Scope): BatchScope
+
+PartSerial(Part Serial): EntityType
+	desc: A physical part installed on a product, jointly identified by serialNumber and batchNo.
+	# Deduplication relies on post-processing: uniqueKey = partNo::serialNumber::batchNo
+	properties:
+		serialNumber(Serial Number): Text
+			index: Text
+		batchNo(Batch No): Text
+			index: Text
+		status(Status): Text
+			index: Text
+		supplierName(Supplier Name): Text
+			index: Text
+		manufactureDate(Manufacture Date): Text
+	relations:
+		instanceOfPart(Instance Of Part): Part
+		atBOMNode(At BOM Node): BOMNode
+		installedOn(Installed On): ProductInstance
+		suppliedBy(Supplied By): Organization
+		replaces(Replaces): PartSerial
+		inBatchScope(In Batch Scope): BatchScope
+
+Installation(Installation): EntityType
+	desc: A single install/uninstall action, recording the mounting of a PartSerial onto a ProductInstance at a given BOMNode position.
+	properties:
+		installationId(Installation ID): Text
+			index: Text
+			constraint: NotNull,Unique
+		installTime(Install Time): Text
+			index: Text
+		removeTime(Remove Time): Text
+		isCurrent(Is Current): Text
+			index: Text
+		operatorName(Operator Name): Text
+	relations:
+		product(Product): ProductInstance
+		partSerial(Part Serial): PartSerial
+		bomNode(BOM Node): BOMNode
+		generatedByEvent(Generated By Event): ProductEvent
+
+BatchScope(Batch Scope): EntityType
+	desc: A delivery or production batch range (e.g. delivered after week 44 of 2021) used to define recall or retrofit scope.
+	properties:
+		scopeId(Scope ID): Text
+			index: Text
+			constraint: NotNull,Unique
+		title(Title): Text
+			index: Text
+		startWeek(Start Week): Text
+			index: Text
+		endWeek(End Week): Text
+			index: Text
+		description(Description): Text
+
+
+############################################
+# 2. Document Domain
+############################################
+
+Document(Document): EntityType
+	desc: A document from any source (Windchill drawing / spec, DMS analysis report, etc.). The source field distinguishes origin.
+	properties:
+		docId(Doc ID): Text
+			index: Text
+			constraint: NotNull,Unique
+		docNo(Doc No): Text
+			index: Text
+		title(Title): Text
+			index: TextAndVector
+		source(Source): Text
+			index: Text                       # Windchill / DMS / Other
+		docType(Doc Type): Text
+			index: Text                       # Drawing / Spec / 8DReport / Test
+		version(Version): Text
+		issueDate(Issue Date): Text
+	relations:
+		containsSection(Contains Section): DocumentSection
+		describesPart(Describes Part): Part
+		describesBOMNode(Describes BOM Node): BOMNode
+
+DocumentSection(Document Section): EntityType
+	desc: A section within a document. Carries a vector index for RAG retrieval.
+	properties:
+		sectionId(Section ID): Text
+			index: Text
+			constraint: NotNull,Unique
+		sectionType(Section Type): Text
+			index: Text                       # Problem / Field / Locate / Mechanism / Test / Risk / Action
+		title(Title): Text
+			index: Text
+		content(Content): Text
+			index: TextAndVector
+	relations:
+		belongsToDocument(Belongs To Document): Document
+
+Evidence(Evidence): EntityType
+	desc: The smallest evidence unit extracted from a section, referenced by root causes, mechanisms and actions.
+	properties:
+		evidenceId(Evidence ID): Text
+			index: Text
+			constraint: NotNull,Unique
+		evidenceType(Evidence Type): Text
+			index: Text                       # Field / Test / CT / Inspection
+		content(Content): Text
+			index: TextAndVector
+		observedTime(Observed Time): Text
+	relations:
+		fromSection(From Section): DocumentSection
+
+
+############################################
+# 3. Quality Analysis (8D) Domain
+############################################
+
+Problem(Problem): EntityType
+	desc: An engineering problem under analysis (e.g. frequent fault 5228 in Air Supply Unit). One Problem corresponds to many ProductEvent instances and one 8D report.
+	properties:
+		problemId(Problem ID): Text
+			index: Text
+			constraint: NotNull,Unique
+		title(Title): Text
+			index: Text
+		description(Description): Text
+			index: TextAndVector
+		firstObservedTime(First Observed Time): Text
+	relations:
+		hasFaultCode(Has Fault Code): FaultCode
+		affectsBOMNode(Affects BOM Node): BOMNode
+		affectsPartFamily(Affects Part Family): PartFamily
+		affectsPart(Affects Part): Part
+		relatedFailureMode(Related Failure Mode): FailureMode
+
+EightDReport(8D Report): EntityType
+	desc: An 8D problem-analysis report uniquely identified by reportNo. Addresses one Problem and consolidates root causes, mechanisms and actions.
+	properties:
+		reportNo(Report No): Text
+			index: Text
+			constraint: NotNull,Unique
+		issueTitle(Issue Title): Text
+			index: Text
+		reportStatus(Report Status): Text
+			index: Text
+		d2ProblemStatement(D2 Problem Statement): Text
+			index: TextAndVector
+		d4RootCauseSummary(D4 Root Cause Summary): Text
+			index: TextAndVector
+		d5PermanentCorrectionSummary(D5 Permanent Correction Summary): Text
+			index: TextAndVector
+		d7PreventionSummary(D7 Prevention Summary): Text
+			index: TextAndVector
+		riskAssessmentSummary(Risk Assessment Summary): Text
+			index: TextAndVector
+		ownerName(Owner Name): Text
+			index: Text
+		issueDate(Issue Date): Text
+	relations:
+		sourceDocument(Source Document): Document
+		addresses(Addresses): Problem
+		affectedProduct(Affected Product): ProductInstance
+		affectedBOMNode(Affected BOM Node): BOMNode
+		affectedPart(Affected Part): Part
+		identifiesRootCause(Identifies Root Cause): RootCause
+		hasAction(Has Action): ActionItem
+		responsibleOrg(Responsible Org): Organization
+
+RootCause(Root Cause): EntityType
+	desc: The root cause identified by an 8D (e.g. NBR diaphragm deformation blocks the inlet hole). Backed by evidence, with contributing factors and a mechanism chain.
+	properties:
+		causeId(Cause ID): Text
+			index: Text
+			constraint: NotNull,Unique
+		title(Title): Text
+			index: Text
+		description(Description): Text
+			index: TextAndVector
+		isVerified(Is Verified): Text
+			index: Text
+	relations:
+		belongsToReport(Belongs To Report): EightDReport
+		affectsPart(Affects Part): Part
+		affectsBOMNode(Affects BOM Node): BOMNode
+		supportedBy(Supported By): Evidence
+		hasMechanism(Has Mechanism): FailureMechanism
+		contributedBy(Contributed By): ContributingFactor
+
+FailureMechanism(Failure Mechanism): EntityType
+	desc: An intermediate mechanism between root cause and failure mode, chained via leadsTo (e.g. sealed cavity forms then piston cannot return then pressure switch sticks).
+	properties:
+		mechanismId(Mechanism ID): Text
+			index: Text
+			constraint: NotNull,Unique
+		title(Title): Text
+			index: Text
+		description(Description): Text
+			index: TextAndVector
+	relations:
+		leadsTo(Leads To): FailureMechanism
+		causesFailureMode(Causes Failure Mode): FailureMode
+		supportedBy(Supported By): Evidence
+
+ContributingFactor(Contributing Factor): EntityType
+	desc: External factors that enable or amplify the root cause (high temperature and humidity, material variability, assembly compression, etc.).
+	properties:
+		factorId(Factor ID): Text
+			index: Text
+			constraint: NotNull,Unique
+		title(Title): Text
+			index: Text
+		factorType(Factor Type): Text
+			index: Text                       # Environment / Material / Process / Design
+		description(Description): Text
+			index: TextAndVector
+	relations:
+		supportedBy(Supported By): Evidence
+
+ActionItem(Action Item): EntityType
+	desc: An action in an 8D report. actionType distinguishes Containment D3, Corrective D5, Preventive D7, Field retrofit, and Verification.
+	properties:
+		actionId(Action ID): Text
+			index: Text
+			constraint: NotNull,Unique
+		title(Title): Text
+			index: Text
+		actionType(Action Type): Text
+			index: Text                       # Required enum
+		status(Status): Text
+			index: Text
+		ownerName(Owner Name): Text
+			index: Text
+		plannedDate(Planned Date): Text
+		completedDate(Completed Date): Text
+		verificationResult(Verification Result): Text     # Used when actionType = Verification
+	relations:
+		belongsToReport(Belongs To Report): EightDReport
+		verifiesCause(Verifies Cause): RootCause
+		replacesPart(Replaces Part): Part
+		replacesWith(Replaces With): Part
+		appliesToFamily(Applies To Family): PartFamily        # Family-level switch (e.g. preferredPart changed to SUCO)
+		appliesToBOMNode(Applies To BOM Node): BOMNode
+		appliesToScope(Applies To Scope): BatchScope          # For field retrofit
+		appliesToProduct(Applies To Product): ProductInstance # For temporary containment
+		responsibleOrg(Responsible Org): Organization
+		supportedBy(Supported By): Evidence
+
+FailureMode(Failure Mode): EntityType
+	desc: A standardized failure-mode name (e.g. pressure switch fails to open / abnormal normally-closed state between pins 1 and 3). Synonymous expressions are merged.
+	properties:
+		modeCode(Mode Code): Text
+			index: Text
+			constraint: NotNull,Unique
+		modeName(Mode Name): Text
+			index: Text
+		description(Description): Text
+			index: TextAndVector
+	relations:
+		triggers(Triggers): FaultCode
+
+FaultCode(Fault Code): EntityType
+	desc: A fault code reported by the equipment (e.g. 5228 Dryer Fault). Standard codes from Knorr-Bremse onboard diagnostic systems.
+	properties:
+		codeValue(Code Value): Text
+			index: Text
+			constraint: NotNull,Unique
+		codeName(Code Name): Text
+			index: Text
+		description(Description): Text
+
+
+############################################
+# 4. Product Event Domain
+############################################
+
+ProductEvent(Product Event): EntityType
+	desc: A single event that occurred on a product (fault / abnormality / customer complaint / test). Many Events can be grouped under one Problem.
+	properties:
+		eventId(Event ID): Text
+			index: Text
+			constraint: NotNull,Unique
+		eventType(Event Type): Text
+			index: Text
+		severity(Severity): Text
+			index: Text
+		symptom(Symptom): Text
+			index: TextAndVector
+		eventTime(Event Time): Text
+			index: Text
+		status(Status): Text
+			index: Text
+		reporterName(Reporter Name): Text
+	relations:
+		happenedOn(Happened On): ProductInstance
+		belongsToProblem(Belongs To Problem): Problem
+		relatedFailureMode(Related Failure Mode): FailureMode
+		relatedFaultCode(Related Fault Code): FaultCode
+		relatedSerial(Related Serial): PartSerial
+		relatedBOMNode(Related BOM Node): BOMNode
+		responsibleOrg(Responsible Org): Organization
+
+
+############################################
+# 5. Graphiti Temporal Domain (Streamlined)
+############################################
+
+Episode(Episode): EntityType
+	desc: A time period during which things happened (field-fault period / test period / analysis period / action rollout period) carrying multiple Observations.
+	properties:
+		episodeId(Episode ID): Text
+			index: Text
+			constraint: NotNull,Unique
+		title(Title): Text
+			index: Text
+		episodeType(Episode Type): Text
+			index: Text                       # Field / Analysis / Test / Action
+		summary(Summary): Text
+			index: TextAndVector
+		validFrom(Valid From): Text
+			index: Text
+		validTo(Valid To): Text
+			index: Text
+	relations:
+		observed(Observed): Observation
+
+Observation(Observation): EntityType
+	desc: A concrete observed fact (vehicle reports 5228 / no recurrence after replacement / 3 out of 4 reproduced). May be unresolved (part mention stored as text) and later resolved back to the master graph.
+	properties:
+		observationId(Observation ID): Text
+			index: Text
+			constraint: NotNull,Unique
+		content(Content): Text
+			index: TextAndVector
+		mentionText(Mention Text): Text
+			index: Text                       # Unresolved part mention, stored directly as a property
+		observedTime(Observed Time): Text
+			index: Text
+		source(Source): Text                  # Field / Lab / Customer
+		confidence(Confidence): Text
+	relations:
+		resolvedToPart(Resolved To Part): Part
+		resolvedToBOMNode(Resolved To BOM Node): BOMNode
+		resolvedToSerial(Resolved To Serial): PartSerial
+		alignsToEvent(Aligns To Event): ProductEvent
+		supportsReport(Supports Report): EightDReport
+		fromEvidence(From Evidence): Evidence
+
+
+############################################
+# 6. Organization
+############################################
+
+Organization(Organization): EntityType
+	desc: Companies, departments, customers, suppliers, manufacturers, etc.
+	properties:
+		orgCode(Org Code): Text
+			index: Text
+			constraint: NotNull,Unique
+		orgName(Org Name): Text
+			index: Text
+		orgType(Org Type): Text
+			index: Text                       # Manufacturer / Supplier / Customer / Department

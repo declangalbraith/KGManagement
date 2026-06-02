@@ -5,27 +5,86 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import SchemaVersion
+from dvadmin.utils.json_response import ErrorResponse
+from dvadmin.utils.viewset import CustomModelViewSet
+
+from .models import SchemaProject, SchemaVersion
 from .serializers import (
     SchemaImportSerializer,
+    SchemaProjectSerializer,
+    SchemaPublishSerializer,
     SchemaSaveSerializer,
     SchemaVersionDetailSerializer,
     SchemaVersionListSerializer,
 )
 
 
-def _bump_draft_version(version: str) -> str:
-    """KB-ONT-V2.1.0-draft → KB-ONT-V2.1.1-draft"""
-    match = re.match(r"^(KB-ONT-V)(\d+)\.(\d+)\.(\d+)(-draft)?$", version, re.IGNORECASE)
+def _draft_from_published(version: str) -> str:
+    """KB-ONT-V2.1.0 → KB-ONT-V2.1.1-draft"""
+    match = re.match(r"^(KB-ONT-V)(\d+)\.(\d+)\.(\d+)$", version, re.IGNORECASE)
     if not match:
-        return f"{version}-saved"
+        return f"{version}-draft"
     patch = int(match.group(4)) + 1
     return f"{match.group(1)}{match.group(2)}.{match.group(3)}.{patch}-draft"
-
-
 def _bump_publish_version(version: str) -> str:
     """KB-ONT-V2.1.0-draft → KB-ONT-V2.1.0"""
     return re.sub(r"-draft$", "", version, flags=re.IGNORECASE)
+
+
+def _parse_project_id(request, *, from_body=False):
+    if from_body:
+        raw = request.data.get("project_id")
+    else:
+        raw = request.query_params.get("project_id")
+    if raw in (None, ""):
+        return None
+    try:
+        project_id = int(raw)
+    except (TypeError, ValueError):
+        return None
+    return project_id if project_id > 0 else None
+
+
+def _get_project_or_error(project_id):
+    if not project_id:
+        return None, ErrorResponse(msg="缺少 project_id 参数", status=status.HTTP_400_BAD_REQUEST)
+    project = SchemaProject.objects.filter(id=project_id).first()
+    if not project:
+        return None, ErrorResponse(msg=f"Schema 项目不存在: {project_id}", status=status.HTTP_404_NOT_FOUND)
+    return project, None
+
+
+class SchemaProjectViewSet(CustomModelViewSet):
+    """Schema 项目 CRUD。"""
+
+    queryset = SchemaProject.objects.all()
+    serializer_class = SchemaProjectSerializer
+    permission_classes = [IsAuthenticated]
+    search_fields = ["name", "display_name"]
+    pagination_class = None
+
+    def list(self, request, *args, **kwargs):
+        from .schema_initializer import ensure_default_schema_project, migrate_orphan_schema_versions
+
+        if not SchemaProject.objects.exists():
+            ensure_default_schema_project(request)
+        else:
+            default = (
+                SchemaProject.objects.filter(name="KGtestV2").first()
+                or SchemaProject.objects.order_by("id").first()
+            )
+            if default:
+                migrate_orphan_schema_versions(default)
+        return super().list(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if SchemaVersion.objects.filter(project_id=instance.id).exists():
+            return ErrorResponse(
+                msg="该项目下仍有 Schema 版本，无法删除",
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return super().destroy(request, *args, **kwargs)
 
 
 class SchemaVersionViewSet(viewsets.ReadOnlyModelViewSet):
@@ -40,6 +99,26 @@ class SchemaVersionViewSet(viewsets.ReadOnlyModelViewSet):
             return SchemaVersionListSerializer
         return SchemaVersionDetailSerializer
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+        project_id = _parse_project_id(self.request)
+        if project_id:
+            qs = qs.filter(
+                project_id=project_id,
+                status=SchemaVersion.Status.PUBLISHED,
+                is_current=False,
+            )
+        return qs
+
+    def list(self, request, *args, **kwargs):
+        project_id = _parse_project_id(request)
+        if not project_id:
+            return ErrorResponse(msg="缺少 project_id 参数", status=status.HTTP_400_BAD_REQUEST)
+        _, err = _get_project_or_error(project_id)
+        if err:
+            return err
+        return super().list(request, *args, **kwargs)
+
 
 class SchemaCurrentView(APIView):
     """获取当前编辑版本，首次访问时自动从初始 schema 文件加载。"""
@@ -47,23 +126,32 @@ class SchemaCurrentView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        current = SchemaVersion.objects.filter(is_current=True).first()
+        project_id = _parse_project_id(request)
+        project, err = _get_project_or_error(project_id)
+        if err:
+            return err
+
+        current = SchemaVersion.objects.filter(
+            project_id=project.id, is_current=True
+        ).first()
         if current:
             return Response(SchemaVersionDetailSerializer(current).data)
 
-        # 表空 → 从初始 schema 文件加载
         from .schema_initializer import load_initial_snapshot
 
-        snapshot = load_initial_snapshot()
+        snapshot = load_initial_snapshot(project)
         if not snapshot:
             return Response(None, status=status.HTTP_200_OK)
 
-        SchemaVersion.objects.filter(is_current=True).update(is_current=False)
+        SchemaVersion.objects.filter(project_id=project.id, is_current=True).update(
+            is_current=False
+        )
         record = SchemaVersion(
+            project_id=project.id,
             version="KB-ONT-V1.0.0-draft",
             status=SchemaVersion.Status.DRAFT,
             is_current=True,
-            description="从 KGtestV2.schema 初始化",
+            description=f"从 {project.name} 初始 schema 文件初始化",
             snapshot=snapshot,
         )
         record.insert(request)
@@ -71,7 +159,7 @@ class SchemaCurrentView(APIView):
 
 
 class SchemaSaveView(APIView):
-    """保存为新草稿版本。"""
+    """保存草稿：当前为草稿时就地更新，从已发布编辑时 fork 新草稿。"""
 
     permission_classes = [IsAuthenticated]
 
@@ -81,25 +169,46 @@ class SchemaSaveView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         data = serializer.validated_data
+        project, err = _get_project_or_error(data["project_id"])
+        if err:
+            return err
 
-        # 取当前版本的 version 号用于递增
-        current = SchemaVersion.objects.filter(is_current=True).first()
-        if current:
-            new_version = _bump_draft_version(current.version)
-        else:
-            new_version = "KB-ONT-V1.0.0-draft"
+        current = SchemaVersion.objects.filter(
+            project_id=project.id, is_current=True
+        ).first()
 
-        # 清除旧的 is_current
-        SchemaVersion.objects.filter(is_current=True).update(is_current=False)
+        if current and current.status == SchemaVersion.Status.DRAFT:
+            current.description = data["description"]
+            current.snapshot = data["snapshot"]
+            current.save()
+            return Response(SchemaVersionDetailSerializer(current).data)
+
+        if current and current.status == SchemaVersion.Status.PUBLISHED:
+            current.is_current = False
+            current.save(update_fields=["is_current"])
+            record = SchemaVersion(
+                project_id=project.id,
+                version=_draft_from_published(current.version),
+                status=SchemaVersion.Status.DRAFT,
+                is_current=True,
+                description=data["description"],
+                snapshot=data["snapshot"],
+            )
+            record = record.insert(request)
+            return Response(
+                SchemaVersionDetailSerializer(record).data,
+                status=status.HTTP_201_CREATED,
+            )
 
         record = SchemaVersion(
-            version=new_version,
+            project_id=project.id,
+            version="KB-ONT-V1.0.0-draft",
             status=SchemaVersion.Status.DRAFT,
             is_current=True,
             description=data["description"],
             snapshot=data["snapshot"],
         )
-        record.insert(request)
+        record = record.insert(request)
         return Response(
             SchemaVersionDetailSerializer(record).data,
             status=status.HTTP_201_CREATED,
@@ -112,8 +221,18 @@ class SchemaPublishView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
+        serializer = SchemaPublishSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        project, err = _get_project_or_error(serializer.validated_data["project_id"])
+        if err:
+            return err
+
         current = SchemaVersion.objects.filter(
-            is_current=True, status=SchemaVersion.Status.DRAFT
+            project_id=project.id,
+            is_current=True,
+            status=SchemaVersion.Status.DRAFT,
         ).first()
         if not current:
             return Response(
@@ -148,9 +267,11 @@ class SchemaImportView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # 解析 schema 文本并转为 workbench snapshot
         try:
-            from schema_manager.parseOpenSpgSchema import parseOpenSpgSchema, getParsedSchemaStats
+            from schema_manager.parseOpenSpgSchema import (
+                getParsedSchemaStats,
+                parseOpenSpgSchema,
+            )
             from schema_manager.schema_initializer import parsed_to_workbench_snapshot
 
             parsed = parseOpenSpgSchema(text)
@@ -176,7 +297,14 @@ class SchemaExportView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        current = SchemaVersion.objects.filter(is_current=True).first()
+        project_id = _parse_project_id(request)
+        project, err = _get_project_or_error(project_id)
+        if err:
+            return err
+
+        current = SchemaVersion.objects.filter(
+            project_id=project.id, is_current=True
+        ).first()
         if not current:
             return Response(
                 {"error": "没有当前版本可导出"},
