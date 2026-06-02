@@ -49,6 +49,7 @@
 <script setup lang="ts" name="layoutTagsView">
 import { defineAsyncComponent, reactive, onMounted, computed, ref, nextTick, onBeforeUpdate, onBeforeMount, onUnmounted, watch } from 'vue';
 import { useRoute, useRouter, onBeforeRouteUpdate } from 'vue-router';
+import { useI18n } from 'vue-i18n';
 import Sortable from 'sortablejs';
 import { ElMessage } from 'element-plus';
 import { storeToRefs } from 'pinia';
@@ -77,6 +78,7 @@ const { tagsViewRoutes } = storeToRefs(storesTagsViewRoutes);
 const storesKeepALiveNames = useKeepALiveNames();
 const route = useRoute();
 const router = useRouter();
+const { locale } = useI18n();
 const state = reactive<TagsViewState>({
 	routeActive: '',
 	routePath: route.path,
@@ -97,9 +99,8 @@ const getThemeConfig = computed(() => {
 });
 // 设置 自定义 tagsView 名称、 自定义 tagsView 名称国际化
 const setTagsViewNameI18n = computed(() => {
-	return (v: RouteItem) => {
-		return other.setTagsViewNameI18n(v);
-	};
+	void locale.value;
+	return (v: RouteItem) => other.setTagsViewNameI18n(v);
 });
 // 设置 tagsView 高亮
 const isActive = (v: RouteItem) => {

@@ -3,7 +3,6 @@
 		<header class="kg-doc-mgmt__head">
 			<div>
 				<h1 class="kg-doc-mgmt__title">{{ t('message.pages.documentManagement.title') }}</h1>
-				<p class="kg-doc-mgmt__subtitle">{{ t('message.pages.documentManagement.subtitle') }}</p>
 			</div>
 		</header>
 
