@@ -1,32 +1,20 @@
-import type { D8Step, GanttTask, StorylineItem } from '../types';
+import type { D8Step, GanttTask, StorylineItem, IssueCategory, IssueSeverity, IssueStatus } from '../types';
 
 export interface IssueDetailMeta {
-	title: string;
-	status: string;
+	status: IssueStatus;
 	creator: string;
 	createdAt: string;
-	category: string;
-	product: string;
-	severity: string;
-	customer: string;
-	description: string[];
+	category: IssueCategory;
+	severity: IssueSeverity;
 }
 
 export const issueDetailMeta: Record<string, IssueDetailMeta> = {
 	'ISS-202604-001': {
-		title: '制动盘表面出现异常磨损',
-		status: '处理中',
+		status: 'processing',
 		creator: '张三',
 		createdAt: '2026-04-10 09:30',
-		category: '质量投诉',
-		product: '制动盘 (BRK-D-100)',
-		severity: '高 - 影响行车安全',
-		customer: '北京地铁 16 号线',
-		description: [
-			'客户反馈在近期交付的列车上，发现部分制动盘表面存在异常的划痕和磨损现象。经过初步检查，磨损深度约为 0.5mm，分布不均匀。',
-			'发生条件：运行里程约 5000km 后发现。',
-			'影响范围：目前已发现 3 列车存在类似问题。',
-		],
+		category: 'qualityComplaint',
+		severity: 'highSafety',
 	},
 };
 

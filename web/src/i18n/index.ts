@@ -86,6 +86,6 @@ export const i18n = createI18n({
 	silentFallbackWarn: false,
 	fallbackWarn: false,
 	locale: themeConfig.value.globalI18n,
-	fallbackLocale: ['zh-CN', 'en', 'zh-TW'],
+	fallbackLocale: ['zh-cn', 'en'],
 	messages,
 });
