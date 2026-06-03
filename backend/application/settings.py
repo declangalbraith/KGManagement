@@ -64,6 +64,7 @@ INSTALLED_APPS = [
     "kg_agent",
     "schema_manager",
     "doc_manage",
+    "workflow",
 ]
 
 MIDDLEWARE = [

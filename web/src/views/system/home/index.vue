@@ -120,28 +120,33 @@
 						</el-button>
 					</div>
 					<div class="kg-panel__body kg-panel__body--scroll">
-						<div v-for="task in dashboardTasks" :key="task.id" class="kg-task-item">
-							<div class="kg-task-item__icon" :class="task.dueType === 'overdue' ? 'is-danger' : 'is-warning'">
-								<el-icon><WarningFilled v-if="task.dueType === 'overdue'" /><Clock v-else /></el-icon>
+						<div v-for="task in workflowTasks" :key="task.id" class="kg-task-item">
+							<div class="kg-task-item__icon is-warning">
+								<el-icon><Clock /></el-icon>
 							</div>
 							<div class="kg-task-item__body">
-								<p class="kg-task-item__title" @click="router.push(`/tasks?issueId=${task.issueId}`)">
-									{{ task.title }}
+								<p
+									class="kg-task-item__title"
+									@click="router.push(`/document-management/general-doc/${task.biz_id}`)"
+								>
+									{{ task.document_name }} · {{ task.workflow_name }}
 								</p>
 								<div class="kg-task-item__meta">
-									<span class="kg-task-item__issue" @click.stop="router.push(`/issues/${task.issueId}`)">
-										{{ task.issueId }}
-									</span>
+									<span>{{ task.document_version }}</span>
 									<span>·</span>
-									<span class="kg-task-item__due" :class="{ 'is-overdue': task.dueType === 'overdue' }">
-										{{ task.dueLabel }}
-									</span>
+									<span>{{ t('message.pages.home.workflowStep', { step: task.step_order }) }}</span>
 								</div>
 							</div>
-							<el-button size="small" round class="kg-task-item__btn" @click="processTask(task.id)">
+							<el-button
+								size="small"
+								round
+								class="kg-task-item__btn"
+								@click="router.push(`/document-management/general-doc/${task.biz_id}`)"
+							>
 								{{ t('message.pages.home.process') }}
 							</el-button>
 						</div>
+						<el-empty v-if="workflowTasks.length === 0" :description="t('message.pages.home.noWorkflowTasks')" :image-size="48" />
 					</div>
 				</div>
 			</div>
@@ -189,7 +194,7 @@
 </template>
 
 <script setup lang="ts" name="kg-home-page">
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { ElMessage } from 'element-plus';
@@ -206,16 +211,18 @@ import {
 } from '@element-plus/icons-vue';
 import { storeToRefs } from 'pinia';
 import { useUserInfo } from '/@/stores/userInfo';
-import { dashboardTasks, initialHotFeed, processNotices } from './mock';
+import { initialHotFeed, processNotices } from './mock';
+import { fetchMyWorkflowTasks, type WorkflowTask } from '/@/api/workflow/index';
 
 const router = useRouter();
 const { t } = useI18n();
 const { userInfos } = storeToRefs(useUserInfo());
 
 const hotFeed = ref([...initialHotFeed]);
+const workflowTasks = ref<WorkflowTask[]>([]);
 const isAdmin = true;
 
-const pendingTaskCount = 12;
+const pendingTaskCount = computed(() => workflowTasks.value.length);
 
 const subtitleText = computed(() =>
 	t('message.pages.home.subtitle', { name: userInfos.value.name || '张三' })
@@ -225,11 +232,11 @@ const tasksDescText = computed(() =>
 	t('message.pages.home.tasksDescription', { count: pendingTaskCount })
 );
 
-const statCards = [
+const statCards = computed(() => [
 	{
 		key: 'tasks',
 		label: t('message.pages.home.pendingTasks'),
-		value: '12',
+		value: String(pendingTaskCount.value),
 		highlight: t('message.pages.home.pendingTasksOverdue'),
 		hint: t('message.pages.home.pendingTasksHint'),
 		tone: 'warning',
@@ -266,7 +273,7 @@ const statCards = [
 		icon: CircleCheck,
 		onClick: () => {},
 	},
-];
+]);
 
 function hideHot(id: string) {
 	hotFeed.value = hotFeed.value.filter((x) => x.id !== id);
@@ -277,10 +284,13 @@ function onFollow() {
 	ElMessage.success(t('message.pages.home.followDesc'));
 }
 
-function processTask(id: string) {
-	ElMessage.success(t('message.pages.home.taskAcceptedDesc'));
-	router.push('/tasks');
-}
+onMounted(async () => {
+	try {
+		workflowTasks.value = (await fetchMyWorkflowTasks()) || [];
+	} catch {
+		workflowTasks.value = [];
+	}
+});
 </script>
 
 <style scoped lang="scss">
