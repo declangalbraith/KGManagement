@@ -1,0 +1,106 @@
+RuntimeSchema: EightD KG Current Runtime Contract for Django
+SchemaVersion: v0.1.0
+PipelineVersion: pipeline-v0.1.0
+Language: en
+Audience: Django integration engineers
+
+Summary:
+  This file describes the current runtime schema and ontology that are actually enforced by the 8D KG service today.
+  It is the integration-facing runtime contract, not the full product ontology backlog.
+
+CanonicalRuntimeSources:
+  VersionSource: backend/app/core/versioning.py
+  ExtractionSchemaRoot: backend/app/schemas/extraction.py
+  RuntimeEntitySubset: backend/app/schemas/entity.py
+  GraphAllowList: backend/app/graph/client.py
+  FullOntologyBaseline: docs/SCHEMA.md
+
+VersionRules:
+  Active schema_version is derived from backend/app/core/versioning.py.
+  Active pipeline_version is derived from backend/app/core/versioning.py.
+  If this file and runtime code ever diverge, runtime code is authoritative until the docs are updated.
+
+ExtractionContract:
+  RootModel: ExtractionResult
+  RequiredShape:
+    report: EightDReport | null
+    event: ProductEvent | null
+    failure_modes: FailureMode[]
+    causes: CauseItem[]
+    actions: ActionItem[]
+    product_instances: ProductInstance[]
+    part_serials: PartSerial[]
+    organizations: Organization[]
+    persons: Person[]
+    failure_products: FailureProduct[]
+    failure_product_mentions: FailureProductMention[]
+    relationships: RelationTriple[]
+    chunks: Chunk[]
+    stats: dict
+
+RuntimeEntityTypes:
+  - EightDReport
+  - ProductEvent
+  - FailureMode
+  - CauseItem
+  - ActionItem
+  - ProductInstance
+  - PartSerial
+  - Organization
+  - Person
+  - FailureProduct
+  - FailureProductMention
+  - Chunk
+
+GraphOntology:
+  AllowedLabels:
+    - EightDReport
+    - ProductEvent
+    - ProductInstance
+    - PartSerial
+    - FailureMode
+    - CauseItem
+    - ActionItem
+    - Organization
+    - Person
+    - FailureProduct
+    - FailureProductMention
+    - Chunk
+  AllowedRelationshipTypes:
+    - HAS_8D_REPORT
+    - RELATED_FAILURE_MODE
+    - ROOT_CAUSE
+    - CORRECTIVE_ACTION
+    - PREVENTIVE_ACTION
+    - VERIFIES_CAUSE
+    - HAPPENED_ON
+    - RELATED_SERIAL
+    - AFFECTED_PRODUCT
+    - AFFECTED_SERIAL
+    - RESPONSIBLE_ORG
+    - INVOLVES_PERSON
+    - AUTHORED_BY_PERSON
+    - REVIEWED_BY_PERSON
+    - REPORTED_BY_PERSON
+    - OWNED_BY_PERSON
+    - TARGET_SERIAL
+    - TARGET_PRODUCT
+    - INSTALLED_ON
+    - SUPPLIED_BY
+    - MENTIONED_IN
+    - MENTIONS
+    - CHUNK_OF_REPORT
+    - MENTIONS_FAILURE_PRODUCT
+    - INSTANCE_OF_FAILURE_PRODUCT
+
+InterpretationRules:
+  docs/SCHEMA.md is the full ontology baseline and design intent.
+  backend/app/schemas/extraction.py plus backend/app/schemas/entity.py define the current runtime extraction subset.
+  backend/app/graph/client.py is the final graph admission gate.
+  Django integration should depend on this runtime contract, not on non-runtime ontology sections.
+
+IntegrationGuidance:
+  Use the integration facade as the only external entry point.
+  Expect only the entity types and relationship types listed above.
+  Do not assume that every entity or relationship from docs/SCHEMA.md is implemented at runtime.
+  Treat this file as the current runtime snapshot for API and downstream mapping work.

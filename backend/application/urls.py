@@ -122,6 +122,8 @@ urlpatterns = (
             path('sse/', sse_view, name='sse'),
             # KAG 知识图谱
             path('api/kag/', include('kag.urls')),
+            # 8D KG 接入（替换 KAG builder / 子图查询）
+            path('api/kg-agent/', include('kg_agent.urls')),
             # Schema 本体设计
             path('api/schema/', include('schema_manager.urls')),
             # 文档管理（BOM / 质量文档）

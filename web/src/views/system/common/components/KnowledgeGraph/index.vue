@@ -75,6 +75,28 @@
 						{{ t('message.pages.knowledge.graph.graphTitle') }}
 					</h3>
 					<span class="kg-graph__divider" />
+					<div class="kg-graph__doc-select">
+						<el-select
+							v-model="selectedDocId"
+							clearable
+							filterable
+							:placeholder="t('message.pages.knowledge.graph.allGraphsOverview')"
+							:loading="jobsLoading"
+							@change="loadOverviewGraph"
+						>
+							<el-option
+								:label="t('message.pages.knowledge.graph.allGraphsOverview')"
+								value=""
+							/>
+							<el-option
+								v-for="job in buildJobOptions"
+								:key="job.doc_id"
+								:label="jobLabel(job)"
+								:value="job.doc_id"
+							/>
+						</el-select>
+					</div>
+					<span class="kg-graph__divider" />
 					<div class="kg-graph__node-search">
 						<el-icon><Search /></el-icon>
 						<input v-model="searchQuery" :placeholder="t('message.pages.knowledge.graph.nodeSearch')" />
@@ -204,11 +226,13 @@ import {
 	ZoomOut,
 } from '@element-plus/icons-vue';
 import {
-	fetchGraphSubgraph,
-	kagAsk,
-	type GraphSubgraphDelta,
-	type GraphTypeLegendItem,
-} from '/@/api/business/kag';
+	extractKgAgentError,
+	kgBuildList,
+	kgFetchGraph,
+	kgFetchGraphOverview,
+	type KgBuildJobItem,
+} from '/@/api/business/kgAgent';
+import { kagAsk, type GraphSubgraphDelta, type GraphSubgraphPayload, type GraphTypeLegendItem } from '/@/api/business/kag';
 import { focusGraphCluster, HIGHLIGHT_CLUSTER_MAX_NODES, MAX_CLUSTER_NODES } from '../../graph/cluster';
 import type { GraphLink, GraphNode } from '../../graph/types';
 import { FALLBACK_LEGEND, mapApiLink, mapApiNode } from '../../graph/utils';
@@ -235,6 +259,9 @@ const typeLegend = ref<Record<string, GraphTypeLegendItem>>({});
 const visibleTypes = ref<Set<string>>(new Set());
 const graphLoading = ref(true);
 const graphError = ref('');
+const jobsLoading = ref(false);
+const selectedDocId = ref('');
+const buildJobOptions = ref<KgBuildJobItem[]>([]);
 const selectedNode = shallowRef<GraphNode | null>(null);
 const activeHighlight = ref<string[] | null>(null);
 
@@ -254,7 +281,15 @@ const selectedNodeProperties = computed(() => {
 });
 
 function legendForNode(node: GraphNode): GraphTypeLegendItem {
-	return typeLegendConfig.value[node.spgType] || FALLBACK_LEGEND.other;
+	return typeLegendConfig.value[node.vizType] || typeLegendConfig.value[node.spgType] || FALLBACK_LEGEND.other;
+}
+
+/** 图例键为 vizType（8D）或 spgType（KAG），与 buildGraph 过滤一致 */
+function isNodeTypeVisible(node: GraphNode): boolean {
+	const vt = node.vizType || 'other';
+	if (visibleTypes.value.has(vt)) return true;
+	if (node.spgType && visibleTypes.value.has(node.spgType)) return true;
+	return visibleTypes.value.size === 0;
 }
 
 function applyTypeLegend(legend?: Record<string, GraphTypeLegendItem>) {
@@ -277,8 +312,12 @@ function applyFocusedGraph(
 	else {
 		const nextLegend: Record<string, GraphTypeLegendItem> = {};
 		for (const n of nodes) {
-			const item = typeLegend.value[n.spgType] || typeLegendConfig.value[n.spgType];
-			if (item && !nextLegend[n.spgType]) nextLegend[n.spgType] = item;
+			const key = n.vizType || n.spgType || 'other';
+			const item =
+				typeLegend.value[n.vizType] ||
+				typeLegend.value[n.spgType] ||
+				typeLegendConfig.value[key];
+			if (item && !nextLegend[key]) nextLegend[key] = item;
 		}
 		typeLegend.value = nextLegend;
 	}
@@ -292,28 +331,102 @@ function replaceGraphFromDelta(delta?: GraphSubgraphDelta | null, seedIds?: stri
 	applyFocusedGraph(nodes, links, seedIds, delta.typeLegend, HIGHLIGHT_CLUSTER_MAX_NODES);
 }
 
+const SUCCESS_JOB_STATUSES = new Set(['success', 'partial_success']);
+
+function jobLabel(job: KgBuildJobItem): string {
+	const name = job.file_name?.trim();
+	if (name) return `${name} (${job.doc_id.slice(0, 8)}…)`;
+	return job.doc_id || `#${job.id}`;
+}
+
+function applyOverviewPayload(payload: GraphSubgraphPayload) {
+	const nodes = (payload.nodes || []).map(mapApiNode);
+	const links = (payload.links || []).map(mapApiLink);
+	if (!nodes.length) {
+		const apiErr = (payload as { error?: string }).error;
+		throw new Error(apiErr || t('message.pages.knowledge.graph.empty'));
+	}
+	applyFocusedGraph(nodes, links, null, payload.typeLegend);
+	if (payload.truncated) {
+		ElMessage.warning(t('message.pages.knowledge.graph.truncated'));
+	}
+}
+
+function resolveGraphLoadError(err: unknown, fallback: string): string {
+	if (err instanceof Error && err.message && err.message !== '请求失败') return err.message;
+	const ax = err as { response?: { data?: { error?: string; msg?: string; migrate_to?: unknown } } };
+	const data = ax.response?.data;
+	if (typeof data?.error === 'string') return data.error;
+	if (typeof data?.msg === 'string') return data.msg;
+	if (data?.migrate_to) return t('message.pages.knowledge.graph.kagDeprecated');
+	return extractKgAgentError(err, fallback);
+}
+
+function dedupeBuildJobs(jobs: KgBuildJobItem[]): KgBuildJobItem[] {
+	const seenDoc = new Set<string>();
+	const seenName = new Set<string>();
+	const out: KgBuildJobItem[] = [];
+	for (const j of jobs) {
+		if (!j.doc_id || !SUCCESS_JOB_STATUSES.has(j.status)) continue;
+		if (seenDoc.has(j.doc_id)) continue;
+		const nameKey = (j.file_name || '').trim().toLowerCase();
+		if (nameKey && seenName.has(nameKey)) continue;
+		seenDoc.add(j.doc_id);
+		if (nameKey) seenName.add(nameKey);
+		out.push(j);
+	}
+	return out;
+}
+
+async function loadBuildJobOptions() {
+	jobsLoading.value = true;
+	try {
+		const jobs = await kgBuildList({ limit: 50 });
+		buildJobOptions.value = dedupeBuildJobs(jobs);
+		if (
+			selectedDocId.value &&
+			!buildJobOptions.value.some((j) => j.doc_id === selectedDocId.value)
+		) {
+			selectedDocId.value = '';
+		}
+	} catch (err) {
+		console.warn('load build jobs failed', err);
+		buildJobOptions.value = [];
+	} finally {
+		jobsLoading.value = false;
+	}
+}
+
+async function loadOverviewFromEightD(docId: string) {
+	const payload = await kgFetchGraph({ docId });
+	applyOverviewPayload(payload);
+}
+
+async function loadOverviewFromEightDMerged() {
+	const payload = await kgFetchGraphOverview({ limit: MAX_CLUSTER_NODES, maxDocs: 20 });
+	applyOverviewPayload(payload);
+	if (payload.truncated) {
+		ElMessage.warning(t('message.pages.knowledge.graph.truncated'));
+	}
+}
+
 async function loadOverviewGraph() {
 	graphLoading.value = true;
 	graphError.value = '';
+	selectedNode.value = null;
 	try {
-		const payload = await fetchGraphSubgraph({ mode: 'overview', limit: MAX_CLUSTER_NODES });
-		const nodes = (payload.nodes || []).map(mapApiNode);
-		const links = (payload.links || []).map(mapApiLink);
-		if (!nodes.length) {
-			const apiErr = (payload as { error?: string }).error;
-			graphError.value = apiErr || t('message.pages.knowledge.graph.empty');
-			return;
+		const docId = (selectedDocId.value || '').trim();
+		if (docId) {
+			await loadOverviewFromEightD(docId);
+		} else {
+			selectedDocId.value = '';
+			await loadOverviewFromEightDMerged();
 		}
-		applyFocusedGraph(nodes, links, null, payload.typeLegend);
-		if (payload.truncated) {
-			ElMessage.warning(t('message.pages.knowledge.graph.truncated'));
-		}
-		// Must finish loading before buildGraph — it no-ops while graphLoading is true.
 		graphLoading.value = false;
 		await nextTick();
 		buildGraph();
 	} catch (err) {
-		graphError.value = t('message.pages.knowledge.graph.loadFailed');
+		graphError.value = resolveGraphLoadError(err, t('message.pages.knowledge.graph.loadFailed'));
 		console.error(err);
 	} finally {
 		graphLoading.value = false;
@@ -458,7 +571,8 @@ function buildGraph() {
 
 	if (!graphNodes.value.length) return;
 
-	const nodes = graphNodes.value.filter((n) => visibleTypes.value.has(n.spgType)).map((d) => ({ ...d }));
+	const nodes = graphNodes.value.filter(isNodeTypeVisible).map((d) => ({ ...d }));
+	if (!nodes.length) return;
 	const cx = width / 2;
 	const cy = height / 2;
 	const initR = Math.min(width, height) * 0.28;
@@ -791,8 +905,9 @@ watch(chatHistory, () => scrollChat(), { deep: true });
 
 let resizeObserver: ResizeObserver | null = null;
 
-onMounted(() => {
-	loadOverviewGraph();
+onMounted(async () => {
+	await loadBuildJobOptions();
+	await loadOverviewGraph();
 	if (containerRef.value) {
 		resizeObserver = new ResizeObserver(() => buildGraph());
 		resizeObserver.observe(containerRef.value);
@@ -1036,6 +1151,15 @@ onUnmounted(() => {
 	height: 24px;
 	background: rgba(0, 0, 0, 0.1);
 	flex-shrink: 0;
+}
+
+.kg-graph__doc-select {
+	min-width: 200px;
+	max-width: 280px;
+	flex-shrink: 0;
+	:deep(.el-select) {
+		width: 100%;
+	}
 }
 
 .kg-graph__node-search {

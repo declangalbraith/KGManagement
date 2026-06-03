@@ -61,6 +61,7 @@ INSTALLED_APPS = [
     "channels",
     "dvadmin.system",
     "kag",
+    "kg_agent",
     "schema_manager",
     "doc_manage",
 ]
@@ -461,6 +462,19 @@ MINIO_SECURE = locals().get("MINIO_SECURE", False)
 
 # OpenSPG 配置
 KAG_OPENSPG_HOST = locals().get("KAG_OPENSPG_HOST", "http://localhost:18887")
+
+# ================================================= #
+# ****************** 8D KG 接入 ******************* #
+# ================================================= #
+KG_8D_BASE_URL = locals().get("KG_8D_BASE_URL", "http://127.0.0.1:8000/api/v1")
+KG_8D_TIMEOUT_SEC = locals().get("KG_8D_TIMEOUT_SEC", 120)
+KG_8D_UPLOAD_TIMEOUT_SEC = locals().get("KG_8D_UPLOAD_TIMEOUT_SEC", 300)
+KG_8D_JWT_SECRET = locals().get("KG_8D_JWT_SECRET", "")
+KG_8D_JWT_ALGORITHM = locals().get("KG_8D_JWT_ALGORITHM", "HS256")
+KG_8D_JWT_TTL_SEC = locals().get("KG_8D_JWT_TTL_SEC", 3600)
+KG_8D_SOURCE_SYSTEM = locals().get("KG_8D_SOURCE_SYSTEM", "django-main")
+KG_8D_SOURCE_MODULE = locals().get("KG_8D_SOURCE_MODULE", "knowledge")
+KG_8D_DEFAULT_SENSITIVITY = locals().get("KG_8D_DEFAULT_SENSITIVITY", "restricted")
 
 # 兼容 dict 格式（供 management commands 读取）
 KAG_EMBEDDING_CONFIG = {

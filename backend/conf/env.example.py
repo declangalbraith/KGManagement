@@ -53,6 +53,22 @@ MINIO_PASSWORD = 'admin123456'
 MINIO_BUCKET = 'kg-documents'
 MINIO_SECURE = False
 
+# ================================================= #
+# *************** 8D KG 接入配置 ****************** #
+# ================================================= #
+# 8D FastAPI 服务 Base URL（非 Django 端口）
+KG_8D_BASE_URL = 'http://127.0.0.1:8000/api/v1'
+# 与 8D settings.secret_key 一致，用于签发 integration facade JWT（见 kg_agent/Django token claims 对接约定.md）
+KG_8D_JWT_SECRET = ''
+KG_8D_JWT_ALGORITHM = 'HS256'
+# 页面联调建议 3600 秒以内；失效后由 Django 按当前用户重新签发
+KG_8D_JWT_TTL_SEC = 3600
+KG_8D_TIMEOUT_SEC = 120
+KG_8D_UPLOAD_TIMEOUT_SEC = 300
+KG_8D_SOURCE_SYSTEM = 'django-main'
+KG_8D_SOURCE_MODULE = 'knowledge'
+KG_8D_DEFAULT_SENSITIVITY = 'restricted'
+
 ALLOWED_HOSTS = ["*"]
 # 列权限中排除App应用
 COLUMN_EXCLUDE_APPS = []

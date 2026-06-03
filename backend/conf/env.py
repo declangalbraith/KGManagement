@@ -78,3 +78,18 @@ KAG_NEO4J_DATABASE = "kgtestv2"
 
 # OpenSPG
 KAG_OPENSPG_HOST = "http://117.62.232.51:18887"
+
+# ================================================= #
+# *************** 8D KG 接入（integration facade）*** #
+# ================================================= #
+# 8D API 根路径（与 Django 端口不同；按实际 8D 部署修改）
+KG_8D_BASE_URL = "http://117.62.232.51:18081/api/v1"
+# 必须与 8D 侧 settings.secret_key 完全一致（请将同值配置到 8D 后重启）
+KG_8D_JWT_SECRET = "K-Bm4_8qmhbv22Iymrg7-mlN5tVnSww8KooNyS_WT_8Zs2IlMhZQJQqBI9R-hgIF"
+KG_8D_JWT_ALGORITHM = "HS256"
+KG_8D_JWT_TTL_SEC = 3600
+KG_8D_TIMEOUT_SEC = 120
+KG_8D_UPLOAD_TIMEOUT_SEC = 300
+KG_8D_SOURCE_SYSTEM = "django-main"
+KG_8D_SOURCE_MODULE = "knowledge"
+KG_8D_DEFAULT_SENSITIVITY = "restricted"
