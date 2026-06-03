@@ -1,5 +1,9 @@
 export type IssueViewMode = 'active' | 'archived' | 'deleted' | 'hot';
 
+export type IssueStatus = 'processing' | 'pendingCause' | 'pendingApproval' | 'done';
+export type IssueCategory = 'qualityComplaint' | 'techConsult' | 'fieldSupport';
+export type IssueSeverity = 'highSafety';
+
 export interface IssueListItem {
 	id: string;
 	title: string;

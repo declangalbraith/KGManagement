@@ -40,7 +40,7 @@
 					<span class="kg-gdocs__pending-name">{{ pendingFile.name }}</span>
 				</el-form-item>
 				<el-form-item :label="t('message.pages.generalDoc.uploadDocType')" required>
-					<el-select v-model="uploadForm.docTypeId" class="w100" :loading="typesLoading">
+					<el-select v-model="uploadForm.docTypeId" class="w100" :loading="typesLoading" @change="onUploadDocTypeChange">
 						<el-option
 							v-for="opt in documentTypes"
 							:key="opt.id"
@@ -57,13 +57,15 @@
 						:placeholder="t('message.pages.generalDoc.noDescription')"
 					/>
 				</el-form-item>
-				<el-form-item :label="t('message.pages.generalDoc.uploadApprover')" required>
+				<el-form-item :label="t('message.pages.generalDoc.uploadWorkflow')">
 					<el-select
-						v-model="uploadForm.approver"
+						v-model="uploadForm.workflowDefinitionId"
 						class="w100"
-						:placeholder="t('message.pages.generalDoc.uploadApproverPlaceholder')"
+						clearable
+						:placeholder="t('message.pages.generalDoc.uploadWorkflowPlaceholder')"
+						:loading="workflowsLoading"
 					>
-						<el-option v-for="person in mockApprovers" :key="person" :label="person" :value="person" />
+						<el-option v-for="wf in workflowDefinitions" :key="wf.id" :label="wf.name" :value="wf.id" />
 					</el-select>
 				</el-form-item>
 			</el-form>
@@ -133,6 +135,14 @@
 							<td class="is-right" @click.stop>
 								<div class="kg-gdocs__actions">
 									<button
+										v-if="doc.can_trigger_workflow"
+										type="button"
+										class="kg-gdocs__text-btn"
+										@click="onTriggerWorkflow(doc.id)"
+									>
+										{{ t('message.pages.generalDoc.triggerWorkflow') }}
+									</button>
+									<button
 										type="button"
 										class="kg-icon-btn"
 										:title="t('message.pages.generalDoc.download')"
@@ -170,10 +180,12 @@ import {
 	downloadGeneralDocument,
 	fetchDocumentTypes,
 	fetchGeneralDocList,
+	triggerGeneralDocWorkflow,
 	uploadGeneralDocument,
 	type DocumentType,
 	type GeneralDocument,
 } from '/@/api/docManage/generalDoc';
+import { fetchWorkflowDefinitions, type WorkflowDefinition } from '/@/api/workflow/index';
 
 const props = withDefaults(
 	defineProps<{
@@ -186,15 +198,15 @@ const props = withDefaults(
 	}
 );
 
-const mockApprovers = ['张三', '王五', '李经理', '赵六'];
-
 const { t } = useI18n();
 const router = useRouter();
 const searchQuery = ref('');
 const list = ref<GeneralDocListItem[]>([]);
 const documentTypes = ref<DocumentType[]>([]);
+const workflowDefinitions = ref<WorkflowDefinition[]>([]);
 const loading = ref(false);
 const typesLoading = ref(false);
+const workflowsLoading = ref(false);
 const uploading = ref(false);
 const fileInputRef = ref<HTMLInputElement | null>(null);
 const isDragOver = ref(false);
@@ -203,7 +215,7 @@ const pendingFile = ref<File | null>(null);
 const uploadForm = ref({
 	docTypeId: undefined as number | undefined,
 	description: '',
-	approver: '',
+	workflowDefinitionId: undefined as number | undefined,
 });
 
 function mapRecord(doc: GeneralDocument): GeneralDocListItem {
@@ -217,6 +229,7 @@ function mapRecord(doc: GeneralDocument): GeneralDocListItem {
 		uploader: doc.uploader,
 		update_datetime: doc.update_datetime,
 		original_filename: doc.original_filename,
+		can_trigger_workflow: doc.can_trigger_workflow,
 	};
 }
 
@@ -237,6 +250,36 @@ function statusLabel(status: ApprovalStatus) {
 	if (status === 'approved') return t('message.pages.generalDoc.statusApproved');
 	if (status === 'pending') return t('message.pages.generalDoc.statusPending');
 	return t('message.pages.generalDoc.statusDraft');
+}
+
+async function loadWorkflowsForType(docTypeId?: number) {
+	if (!docTypeId) {
+		workflowDefinitions.value = [];
+		return;
+	}
+	workflowsLoading.value = true;
+	try {
+		workflowDefinitions.value =
+			(await fetchWorkflowDefinitions({ doc_type_id: docTypeId, is_active: true })) || [];
+	} finally {
+		workflowsLoading.value = false;
+	}
+}
+
+function onUploadDocTypeChange(docTypeId: number) {
+	uploadForm.value.workflowDefinitionId = undefined;
+	loadWorkflowsForType(docTypeId);
+}
+
+async function onTriggerWorkflow(id: number) {
+	try {
+		await triggerGeneralDocWorkflow(id);
+		ElMessage.success(t('message.pages.generalDoc.triggerWorkflowSuccess'));
+		await loadList();
+	} catch (err: unknown) {
+		const data = (err as { response?: { data?: { detail?: string } } })?.response?.data;
+		ElMessage.error(data?.detail || t('message.pages.generalDoc.triggerWorkflowFailed'));
+	}
 }
 
 async function loadDocumentTypes() {
@@ -312,11 +355,13 @@ function onFileChange(e: Event) {
 
 function openUploadDialog(file: File) {
 	pendingFile.value = file;
+	const docTypeId = documentTypes.value[0]?.id;
 	uploadForm.value = {
-		docTypeId: documentTypes.value[0]?.id,
+		docTypeId,
 		description: '',
-		approver: '',
+		workflowDefinitionId: undefined,
 	};
+	if (docTypeId) loadWorkflowsForType(docTypeId);
 	uploadDialogVisible.value = true;
 }
 
@@ -329,10 +374,6 @@ async function confirmUpload() {
 		ElMessage.warning(t('message.pages.generalDoc.uploadTypeRequired'));
 		return;
 	}
-	if (!uploadForm.value.approver) {
-		ElMessage.warning(t('message.pages.generalDoc.uploadApproverRequired'));
-		return;
-	}
 	const file = pendingFile.value;
 	if (!file) return;
 
@@ -341,7 +382,7 @@ async function confirmUpload() {
 		await uploadGeneralDocument(file, {
 			doc_type_id: uploadForm.value.docTypeId,
 			description: uploadForm.value.description,
-			approver: uploadForm.value.approver,
+			workflow_definition_id: uploadForm.value.workflowDefinitionId,
 		});
 		uploadDialogVisible.value = false;
 		ElMessage.success(t('message.pages.generalDoc.uploadSuccess'));
@@ -621,7 +662,21 @@ onMounted(async () => {
 	display: inline-flex;
 	align-items: center;
 	justify-content: flex-end;
-	gap: 4px;
+	gap: 8px;
+}
+
+.kg-gdocs__text-btn {
+	border: none;
+	background: transparent;
+	color: var(--el-color-primary);
+	font-size: 12px;
+	font-weight: 600;
+	cursor: pointer;
+	padding: 4px 8px;
+	border-radius: 4px;
+	&:hover {
+		background: var(--el-color-primary-light-9);
+	}
 }
 
 .kg-icon-btn {

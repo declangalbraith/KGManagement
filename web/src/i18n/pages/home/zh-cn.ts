@@ -31,6 +31,8 @@ export default {
 				process: '处理',
 				taskAccepted: '任务已接单',
 				taskAcceptedDesc: '您已成功开始处理该任务',
+				workflowStep: '第 {step} 步审批',
+				noWorkflowTasks: '暂无待审批文档',
 				systemNotices: '系统公告 & 通知',
 				noticesDescription: '最新消息和流程提醒',
 				announcementBadge: '系统公告',

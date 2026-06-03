@@ -63,6 +63,7 @@ INSTALLED_APPS = [
     "kag",
     "schema_manager",
     "doc_manage",
+    "workflow",
 ]
 
 MIDDLEWARE = [

@@ -1,4 +1,4 @@
-import type { D8Step, GanttTask, IssueListItem, StorylineItem } from './types';
+import type { D8Step, GanttTask, IssueListItem, StorylineItem, IssueStatus } from './types';
 
 export const initialIssues: IssueListItem[] = [
 	{ id: 'ISS-202604-001', title: '制动盘表面出现异常磨损', category: '质量投诉', product: '制动盘', status: '处理中', priority: '高', owner: '李四', date: '2026-04-10', isArchived: false, isDeleted: false, isHot: true },
@@ -31,6 +31,6 @@ export const defaultGanttTasks: GanttTask[] = [
 	{ id: 'TSK-002', name: '材料硬度测试分析', start: '2026-04-10', end: '2026-04-14', progress: 60, status: 'in-progress', assignee: '李研究员', phase: 'D4' },
 ];
 
-export const issueDetailById: Record<string, { title: string; status: string; creator: string; createdAt: string }> = {
-	'ISS-202604-001': { title: '制动盘表面出现异常磨损', status: '处理中', creator: '张三', createdAt: '2026-04-10 09:30' },
+export const issueDetailById: Record<string, { status: IssueStatus; creator: string; createdAt: string }> = {
+	'ISS-202604-001': { status: 'processing', creator: '张三', createdAt: '2026-04-10 09:30' },
 };

@@ -65,7 +65,7 @@ class DocumentType(CoreModel):
 
 
 class GeneralDocument(CoreModel):
-    """文本文档（PDF/Word/Excel 等，文件存 MinIO）。"""
+    """文本文档逻辑记录（PDF/Word/Excel 等，文件版本存 MinIO）。"""
 
     is_soft_delete = True
 
@@ -81,7 +81,24 @@ class GeneralDocument(CoreModel):
         related_name="documents",
         verbose_name="文档类型",
     )
-    version = models.CharField(max_length=32, default="V0.1", verbose_name="版本")
+    version_label = models.CharField(max_length=64, default="0.1", verbose_name="版本标签")
+    version = models.CharField(max_length=64, default="V0.1", verbose_name="版本展示")
+    current_version = models.ForeignKey(
+        "GeneralDocumentVersion",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="+",
+        verbose_name="当前文件版本",
+    )
+    workflow_definition = models.ForeignKey(
+        "workflow.WorkflowDefinition",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="documents",
+        verbose_name="绑定审批流",
+    )
     approval_status = models.CharField(
         max_length=16,
         choices=ApprovalStatus.choices,
@@ -102,6 +119,40 @@ class GeneralDocument(CoreModel):
         verbose_name = "文本文档"
         verbose_name_plural = verbose_name
         ordering = ["-update_datetime"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["doc_type", "name"],
+                condition=models.Q(is_deleted=False),
+                name="uniq_general_doc_type_name_active",
+            )
+        ]
 
     def __str__(self):
         return f"{self.name} ({self.doc_type.name})"
+
+
+class GeneralDocumentVersion(CoreModel):
+    """文本文档物理版本（MinIO 对象）。"""
+
+    document = models.ForeignKey(
+        GeneralDocument,
+        on_delete=models.CASCADE,
+        related_name="versions",
+        verbose_name="所属文档",
+    )
+    version_label = models.CharField(max_length=64, verbose_name="版本标签")
+    minio_path = models.CharField(max_length=512, verbose_name="MinIO 对象路径")
+    original_filename = models.CharField(max_length=256, verbose_name="原始文件名")
+    file_ext = models.CharField(max_length=16, verbose_name="文件扩展名")
+    file_size = models.BigIntegerField(default=0, verbose_name="文件大小(bytes)")
+    uploader = models.CharField(max_length=64, blank=True, default="", verbose_name="上传人")
+
+    class Meta:
+        db_table = table_prefix + "doc_general_document_version"
+        verbose_name = "文本文档版本"
+        verbose_name_plural = verbose_name
+        ordering = ["-create_datetime"]
+        unique_together = [("document", "version_label")]
+
+    def __str__(self):
+        return f"{self.document.name} v{self.version_label}"
