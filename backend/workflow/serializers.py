@@ -1,37 +1,25 @@
 from rest_framework import serializers
 
-from dvadmin.system.models import Users
 from workflow.models import (
     WorkflowAuditLog,
     WorkflowDefinition,
     WorkflowInstance,
-    WorkflowStep,
     WorkflowTask,
 )
+from workflow.services.definition import default_definition_json, steps_summary
 
 
-class WorkflowStepSerializer(serializers.ModelSerializer):
+class WorkflowStepSummarySerializer(serializers.Serializer):
+    step_order = serializers.IntegerField()
+    step_name = serializers.CharField()
     assignee_id = serializers.IntegerField()
-    assignee_name = serializers.SerializerMethodField()
-
-    class Meta:
-        model = WorkflowStep
-        fields = ["id", "step_order", "step_name", "assignee_id", "assignee_name"]
-        read_only_fields = ["id", "assignee_name"]
-
-    def get_assignee_name(self, obj):
-        return getattr(obj.assignee, "name", None) or obj.assignee.username
-
-    def validate_assignee_id(self, value):
-        if not Users.objects.filter(id=value).exists():
-            raise serializers.ValidationError("审批人不存在")
-        return value
+    assignee_name = serializers.CharField()
 
 
 class WorkflowDefinitionSerializer(serializers.ModelSerializer):
     doc_type_id = serializers.IntegerField(source="doc_type.id", read_only=True, allow_null=True)
     doc_type_name = serializers.CharField(source="doc_type.name", read_only=True, allow_null=True)
-    steps = WorkflowStepSerializer(many=True, read_only=True)
+    steps = serializers.SerializerMethodField()
 
     class Meta:
         model = WorkflowDefinition
@@ -49,14 +37,16 @@ class WorkflowDefinitionSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "create_datetime", "update_datetime"]
 
+    def get_steps(self, obj):
+        return WorkflowStepSummarySerializer(steps_summary(obj), many=True).data
+
 
 class WorkflowDefinitionWriteSerializer(serializers.ModelSerializer):
     doc_type_id = serializers.IntegerField(required=False, allow_null=True)
-    steps = WorkflowStepSerializer(many=True, required=False)
 
     class Meta:
         model = WorkflowDefinition
-        fields = ["id", "code", "name", "doc_type_id", "is_active", "definition_json", "steps"]
+        fields = ["id", "code", "name", "doc_type_id", "is_active"]
         read_only_fields = ["id"]
 
     def validate_doc_type_id(self, value):
@@ -69,36 +59,28 @@ class WorkflowDefinitionWriteSerializer(serializers.ModelSerializer):
         return value
 
     def create(self, validated_data):
-        steps_data = validated_data.pop("steps", [])
         doc_type_id = validated_data.pop("doc_type_id", None)
         definition = WorkflowDefinition.objects.create(
             **validated_data,
             doc_type_id=doc_type_id,
+            definition_json=default_definition_json(),
         )
-        self._sync_steps(definition, steps_data)
         return definition
 
     def update(self, instance, validated_data):
-        steps_data = validated_data.pop("steps", None)
         doc_type_id = validated_data.pop("doc_type_id", serializers.empty)
         for key, value in validated_data.items():
             setattr(instance, key, value)
         if doc_type_id is not serializers.empty:
             instance.doc_type_id = doc_type_id
         instance.save()
-        if steps_data is not None:
-            self._sync_steps(instance, steps_data)
         return instance
 
-    def _sync_steps(self, definition, steps_data):
-        definition.steps.all().delete()
-        for item in steps_data:
-            WorkflowStep.objects.create(
-                definition=definition,
-                step_order=item["step_order"],
-                step_name=item.get("step_name", ""),
-                assignee_id=item["assignee_id"],
-            )
+
+class WorkflowDesignWriteSerializer(serializers.Serializer):
+    nodeConfig = serializers.JSONField()
+    flowPermission = serializers.JSONField(required=False)
+    directorMaxLevel = serializers.IntegerField(required=False)
 
 
 class WorkflowTaskSerializer(serializers.ModelSerializer):

@@ -5,7 +5,7 @@ from django.http import StreamingHttpResponse
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
-from rest_framework.parsers import FormParser, MultiPartParser
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
@@ -119,7 +119,7 @@ class GeneralDocumentViewSet(viewsets.ModelViewSet):
     ).all()
     serializer_class = GeneralDocumentSerializer
     permission_classes = [IsAuthenticated]
-    parser_classes = [MultiPartParser, FormParser]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
     pagination_class = None
     http_method_names = ["get", "post", "patch", "delete", "head", "options"]
 

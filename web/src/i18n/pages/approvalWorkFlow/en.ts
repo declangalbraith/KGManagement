@@ -1,0 +1,33 @@
+export default {
+	message: {
+		pages: {
+			approvalWorkFlow: {
+				title: 'Approval Workflows',
+				subtitle: 'Configure approval flows for document types; bind on upload and trigger manually from the list.',
+				design: 'Flow Design',
+				newWorkflow: 'New Workflow',
+				editBasic: 'Edit',
+				openDesign: 'Design Flow',
+				name: 'Name',
+				code: 'Code',
+				docType: 'Document Type',
+				active: 'Active',
+				steps: 'Steps',
+				status: 'Status',
+				actions: 'Actions',
+				namePlaceholder: 'e.g. 8D Report Flow',
+				codePlaceholder: 'e.g. 8d_report',
+				docTypePlaceholder: 'Optional',
+				createDialogTitle: 'New Workflow',
+				editDialogTitle: 'Edit Basic Info',
+				saveSuccess: 'Saved',
+				saveFailed: 'Save failed',
+				loadFailed: 'Failed to load workflows',
+				deleteConfirm: 'Delete this workflow?',
+				deleted: 'Deleted',
+				fillNameCode: 'Please enter name and code',
+				notConfigured: 'Not configured',
+			},
+		},
+	},
+};
