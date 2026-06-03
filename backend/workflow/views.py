@@ -6,6 +6,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from dvadmin.utils.json_response import DetailResponse, SuccessResponse
 from workflow.models import WorkflowDefinition, WorkflowTask
 from workflow.serializers import (
     WorkflowDefinitionSerializer,
@@ -43,6 +44,16 @@ class WorkflowDefinitionViewSet(viewsets.ModelViewSet):
             qs = qs.filter(is_active=False)
         return qs
 
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        serializer = WorkflowDefinitionSerializer(queryset, many=True)
+        return SuccessResponse(data=serializer.data, msg="查询成功")
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = WorkflowDefinitionSerializer(instance)
+        return DetailResponse(data=serializer.data, msg="查询成功")
+
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -50,8 +61,12 @@ class WorkflowDefinitionViewSet(viewsets.ModelViewSet):
             creator=request.user if request.user.is_authenticated else None,
             modifier=getattr(request.user, "username", ""),
         )
-        return Response(
-            WorkflowDefinitionSerializer(definition).data,
+        definition = WorkflowDefinition.objects.prefetch_related("steps__assignee").get(
+            pk=definition.pk
+        )
+        return DetailResponse(
+            data=WorkflowDefinitionSerializer(definition).data,
+            msg="创建成功",
             status=status.HTTP_201_CREATED,
         )
 
@@ -64,9 +79,17 @@ class WorkflowDefinitionViewSet(viewsets.ModelViewSet):
         definition = WorkflowDefinition.objects.prefetch_related("steps__assignee").get(
             pk=definition.pk
         )
-        return Response(WorkflowDefinitionSerializer(definition).data)
+        return DetailResponse(
+            data=WorkflowDefinitionSerializer(definition).data,
+            msg="更新成功",
+        )
 
     partial_update = update
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        instance.delete()
+        return DetailResponse(data=[], msg="删除成功")
 
 
 class WorkflowTaskViewSet(viewsets.ReadOnlyModelViewSet):
