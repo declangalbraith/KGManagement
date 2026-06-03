@@ -10,4 +10,5 @@ export interface GeneralDocListItem {
 	uploader: string;
 	update_datetime: string;
 	original_filename: string;
+	can_trigger_workflow: boolean;
 }

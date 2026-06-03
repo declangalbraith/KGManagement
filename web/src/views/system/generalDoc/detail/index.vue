@@ -53,7 +53,7 @@
 						{{ t('message.pages.generalDoc.submitReview') }}
 					</button>
 				</template>
-				<template v-if="doc.approval_status === 'pending'">
+				<template v-if="doc.approval_status === 'pending' && doc.pending_task_id">
 					<button type="button" class="kg-action-btn is-danger" @click="onReject">
 						<el-icon><CircleClose /></el-icon>
 						{{ t('message.pages.generalDoc.reject') }}
@@ -94,7 +94,7 @@
 						</div>
 						<div class="kg-info-item">
 							<span class="kg-info-label">{{ t('message.pages.generalDoc.labelApprover') }}</span>
-							<span class="kg-info-value">{{ doc.approver || '—' }}</span>
+							<span class="kg-info-value">{{ doc.current_assignee_name || doc.workflow_definition_name || '—' }}</span>
 						</div>
 						<div class="kg-info-item">
 							<span class="kg-info-label">{{ t('message.pages.generalDoc.labelFilename') }}</span>
@@ -205,7 +205,7 @@
 import { computed, onMounted, ref, type Component } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import {
 	ArrowLeft,
 	ChatDotRound,
@@ -224,10 +224,14 @@ import {
 	View,
 } from '@element-plus/icons-vue';
 import {
+	approveGeneralDocument,
 	downloadGeneralDocument,
 	fetchGeneralDoc,
+	fetchGeneralDocAuditLogs,
+	rejectGeneralDocument,
 	type GeneralDocument,
 } from '/@/api/docManage/generalDoc';
+import type { WorkflowAuditLog } from '/@/api/workflow/index';
 import DocumentViewer from '../components/DocumentViewer.vue';
 
 const { t } = useI18n();
@@ -291,45 +295,45 @@ type AuditEntry = {
 	iconClass: string;
 };
 
-const auditLogs = computed<AuditEntry[]>(() => {
-	if (!doc.value) return [];
-	const uploader = doc.value.uploader || t('message.pages.generalDoc.systemAuto');
-	const approver = doc.value.approver || t('message.pages.generalDoc.systemAuto');
-	const logs: AuditEntry[] = [
-		{
-			action: 'create',
-			operator: uploader,
-			time: doc.value.create_datetime,
-			message: t('message.pages.generalDoc.auditCreated'),
-			detail: t('message.pages.generalDoc.auditDetailCreated'),
-			icon: Document,
-			iconClass: 'is-muted',
-		},
-	];
-	if (doc.value.approval_status === 'pending') {
-		logs.unshift({
-			action: 'submit',
-			operator: uploader,
-			time: doc.value.update_datetime,
-			message: t('message.pages.generalDoc.auditSubmitted'),
-			detail: t('message.pages.generalDoc.auditDetailSubmitted'),
-			icon: Promotion,
-			iconClass: 'is-blue',
-		});
+const auditLogs = ref<AuditEntry[]>([]);
+
+function mapAuditLog(log: WorkflowAuditLog): AuditEntry {
+	const iconMap: Record<string, Component> = {
+		file_created: Document,
+		file_revised: Document,
+		workflow_started: Promotion,
+		workflow_step_approved: CircleCheck,
+		workflow_completed: CircleCheck,
+		workflow_rejected: CircleClose,
+		workflow_bound: Promotion,
+	};
+	const classMap: Record<string, string> = {
+		workflow_completed: 'is-green',
+		workflow_step_approved: 'is-green',
+		workflow_rejected: 'is-danger',
+		workflow_started: 'is-blue',
+		workflow_bound: 'is-blue',
+	};
+	return {
+		action: log.action,
+		operator: log.operator_name || t('message.pages.generalDoc.systemAuto'),
+		time: log.create_datetime,
+		message: log.message,
+		detail: log.detail,
+		icon: iconMap[log.action] || Clock,
+		iconClass: classMap[log.action] || 'is-muted',
+	};
+}
+
+async function loadAuditLogs() {
+	if (!doc.value) return;
+	try {
+		const logs = await fetchGeneralDocAuditLogs(doc.value.id);
+		auditLogs.value = (logs || []).map(mapAuditLog);
+	} catch {
+		auditLogs.value = [];
 	}
-	if (doc.value.approval_status === 'approved') {
-		logs.unshift({
-			action: 'approve',
-			operator: approver,
-			time: doc.value.update_datetime,
-			message: t('message.pages.generalDoc.auditApproved'),
-			detail: t('message.pages.generalDoc.auditDetailApproved'),
-			icon: CircleCheck,
-			iconClass: 'is-green',
-		});
-	}
-	return logs;
-});
+}
 
 function formatTime(value: string) {
 	if (!value) return '—';
@@ -387,11 +391,30 @@ function onSubmitReview() {
 }
 
 function onReject() {
-	toastInfo('rejectToast');
+	if (!doc.value) return;
+	ElMessageBox.prompt(t('message.pages.generalDoc.rejectCommentPlaceholder'), t('message.pages.generalDoc.reject'), {
+		confirmButtonText: t('message.pages.generalDoc.reject'),
+		cancelButtonText: t('message.pages.generalDoc.uploadCancel'),
+		inputPlaceholder: t('message.pages.generalDoc.noDescription'),
+	})
+		.then(async ({ value }) => {
+			doc.value = await rejectGeneralDocument(doc.value!.id, value || '');
+			ElMessage.success(t('message.pages.generalDoc.rejectToast'));
+			await loadAuditLogs();
+		})
+		.catch(() => undefined);
 }
 
-function onApprove() {
-	toastInfo('approveToast');
+async function onApprove() {
+	if (!doc.value) return;
+	try {
+		doc.value = await approveGeneralDocument(doc.value.id);
+		ElMessage.success(t('message.pages.generalDoc.approveToast'));
+		await loadAuditLogs();
+	} catch (err: unknown) {
+		const data = (err as { response?: { data?: { detail?: string } } })?.response?.data;
+		ElMessage.error(data?.detail || t('message.pages.generalDoc.detailLoadFailed'));
+	}
 }
 
 async function loadDetail() {
@@ -404,6 +427,7 @@ async function loadDetail() {
 	loading.value = true;
 	try {
 		doc.value = await fetchGeneralDoc(id);
+		await loadAuditLogs();
 	} catch {
 		doc.value = null;
 		ElMessage.error(t('message.pages.generalDoc.detailLoadFailed'));

@@ -14,15 +14,20 @@ from doc_manage.serializers import (
     BomDocumentPatchSerializer,
     BomDocumentSerializer,
     DocumentTypeSerializer,
+    GeneralDocumentAuditLogSerializer,
     GeneralDocumentPatchSerializer,
     GeneralDocumentSerializer,
+    GeneralDocumentVersionSerializer,
 )
 from doc_manage.services import minio_client
 from doc_manage.services.bom_service import soft_delete_bom_document, upload_bom_document
 from doc_manage.services.general_doc_service import (
+    revise_general_document,
     soft_delete_general_document,
     upload_general_document,
 )
+from workflow.models import WorkflowAuditLog
+from workflow.services.engine import BIZ_TYPE_GENERAL_DOCUMENT, trigger_workflow
 
 logger = logging.getLogger(__name__)
 
@@ -109,7 +114,9 @@ class DocumentTypeViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class GeneralDocumentViewSet(viewsets.ModelViewSet):
-    queryset = GeneralDocument.objects.select_related("doc_type").all()
+    queryset = GeneralDocument.objects.select_related(
+        "doc_type", "workflow_definition", "current_version"
+    ).all()
     serializer_class = GeneralDocumentSerializer
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
@@ -121,8 +128,15 @@ class GeneralDocumentViewSet(viewsets.ModelViewSet):
             return GeneralDocumentPatchSerializer
         return GeneralDocumentSerializer
 
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context["request"] = self.request
+        return context
+
     def get_queryset(self):
-        qs = GeneralDocument.objects.select_related("doc_type").filter(is_deleted=False)
+        qs = GeneralDocument.objects.select_related(
+            "doc_type", "workflow_definition", "current_version"
+        ).filter(is_deleted=False)
         search = self.request.query_params.get("search", "").strip()
         doc_type_id = self.request.query_params.get("doc_type_id", "").strip()
         if doc_type_id:
@@ -135,7 +149,6 @@ class GeneralDocumentViewSet(viewsets.ModelViewSet):
                 | Q(doc_type__name__icontains=search)
                 | Q(file_description__icontains=search)
                 | Q(uploader__icontains=search)
-                | Q(approver__icontains=search)
             )
         return qs
 
@@ -149,13 +162,14 @@ class GeneralDocumentViewSet(viewsets.ModelViewSet):
                 uploaded_file=uploaded,
                 doc_type_id=request.data.get("doc_type_id"),
                 description=request.data.get("description", ""),
-                approver=request.data.get("approver", ""),
+                workflow_definition_id=request.data.get("workflow_definition_id"),
             )
         except ValidationError as exc:
             return Response(exc.detail, status=status.HTTP_400_BAD_REQUEST)
         except Exception as exc:
             logger.exception("General document upload failed")
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        document = self.get_queryset().get(pk=document.pk)
         serializer = self.get_serializer(document)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
@@ -163,13 +177,59 @@ class GeneralDocumentViewSet(viewsets.ModelViewSet):
         instance = self.get_object()
         serializer = self.get_serializer(instance, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response(GeneralDocumentSerializer(instance).data)
+        document = serializer.save()
+        document = self.get_queryset().get(pk=document.pk)
+        return Response(GeneralDocumentSerializer(document, context=self.get_serializer_context()).data)
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
         soft_delete_general_document(instance)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=True, methods=["post"], url_path="revise", parser_classes=[MultiPartParser, FormParser])
+    def revise(self, request, pk=None):
+        document = self.get_object()
+        uploaded = request.FILES.get("file")
+        if not uploaded:
+            return Response({"file": ["请上传文档文件"]}, status=status.HTTP_400_BAD_REQUEST)
+        content = uploaded.read()
+        try:
+            document = revise_general_document(
+                user=request.user,
+                document=document,
+                uploaded_file_name=uploaded.name,
+                content=content,
+                description=request.data.get("description", ""),
+            )
+        except ValidationError as exc:
+            return Response(exc.detail, status=status.HTTP_400_BAD_REQUEST)
+        document = self.get_queryset().get(pk=document.pk)
+        return Response(GeneralDocumentSerializer(document, context=self.get_serializer_context()).data)
+
+    @action(detail=True, methods=["post"], url_path="trigger-workflow")
+    def trigger_workflow_action(self, request, pk=None):
+        document = self.get_object()
+        try:
+            trigger_workflow(document=document, user=request.user)
+        except ValidationError as exc:
+            return Response(exc.detail, status=status.HTTP_400_BAD_REQUEST)
+        document = self.get_queryset().get(pk=document.pk)
+        return Response(GeneralDocumentSerializer(document, context=self.get_serializer_context()).data)
+
+    @action(detail=True, methods=["get"], url_path="versions")
+    def versions(self, request, pk=None):
+        document = self.get_object()
+        items = document.versions.all().order_by("-create_datetime")
+        return Response(GeneralDocumentVersionSerializer(items, many=True).data)
+
+    @action(detail=True, methods=["get"], url_path="audit-logs")
+    def audit_logs(self, request, pk=None):
+        document = self.get_object()
+        logs = WorkflowAuditLog.objects.filter(
+            biz_type=BIZ_TYPE_GENERAL_DOCUMENT,
+            biz_id=document.id,
+        ).order_by("-create_datetime")
+        return Response(GeneralDocumentAuditLogSerializer(logs, many=True).data)
 
     @action(detail=True, methods=["get"], url_path="download")
     def download(self, request, pk=None):
@@ -189,3 +249,38 @@ class GeneralDocumentViewSet(viewsets.ModelViewSet):
             f'attachment; filename="{document.original_filename}"'
         )
         return response
+
+    @action(detail=True, methods=["post"], url_path="approve")
+    def approve(self, request, pk=None):
+        from workflow.models import WorkflowTask
+        from workflow.services.engine import approve_task, get_pending_task_for_document
+
+        document = self.get_object()
+        task = get_pending_task_for_document(document, request.user)
+        if not task:
+            return Response({"detail": "当前无待办审批任务"}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            approve_task(task=task, user=request.user)
+        except ValidationError as exc:
+            return Response(exc.detail, status=status.HTTP_400_BAD_REQUEST)
+        document = self.get_queryset().get(pk=document.pk)
+        return Response(GeneralDocumentSerializer(document, context=self.get_serializer_context()).data)
+
+    @action(detail=True, methods=["post"], url_path="reject")
+    def reject(self, request, pk=None):
+        from workflow.services.engine import get_pending_task_for_document, reject_task
+
+        document = self.get_object()
+        task = get_pending_task_for_document(document, request.user)
+        if not task:
+            return Response({"detail": "当前无待办审批任务"}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            reject_task(
+                task=task,
+                user=request.user,
+                comment=request.data.get("comment", ""),
+            )
+        except ValidationError as exc:
+            return Response(exc.detail, status=status.HTTP_400_BAD_REQUEST)
+        document = self.get_queryset().get(pk=document.pk)
+        return Response(GeneralDocumentSerializer(document, context=self.get_serializer_context()).data)
