@@ -20,7 +20,7 @@ class WorkflowDefinition(CoreModel):
         verbose_name="绑定文档类型",
     )
     is_active = models.BooleanField(default=True, db_index=True, verbose_name="是否启用")
-    definition_json = models.JSONField(null=True, blank=True, verbose_name="可视化定义(JSON)")
+    definition_json = models.JSONField(null=True, blank=True, verbose_name="流程定义(JSON)")
 
     class Meta:
         db_table = table_prefix + "workflow_definition"
@@ -30,36 +30,6 @@ class WorkflowDefinition(CoreModel):
 
     def __str__(self):
         return self.name
-
-
-class WorkflowStep(CoreModel):
-    """审批步骤（线性顺序）。"""
-
-    definition = models.ForeignKey(
-        WorkflowDefinition,
-        on_delete=models.CASCADE,
-        related_name="steps",
-        verbose_name="所属定义",
-    )
-    step_order = models.PositiveIntegerField(verbose_name="步骤序号")
-    assignee = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.PROTECT,
-        related_name="workflow_steps",
-        verbose_name="审批人",
-        db_constraint=False,
-    )
-    step_name = models.CharField(max_length=64, blank=True, default="", verbose_name="步骤名称")
-
-    class Meta:
-        db_table = table_prefix + "workflow_step"
-        verbose_name = "审批步骤"
-        verbose_name_plural = verbose_name
-        ordering = ["step_order"]
-        unique_together = [("definition", "step_order")]
-
-    def __str__(self):
-        return f"{self.definition.name} #{self.step_order}"
 
 
 class WorkflowInstance(CoreModel):

@@ -11,8 +11,15 @@ from workflow.models import WorkflowDefinition, WorkflowTask
 from workflow.serializers import (
     WorkflowDefinitionSerializer,
     WorkflowDefinitionWriteSerializer,
+    WorkflowDesignWriteSerializer,
     WorkflowTaskRejectSerializer,
     WorkflowTaskSerializer,
+)
+from workflow.services.definition import (
+    collect_design_errors,
+    load_design_payload,
+    normalize_definition_json,
+    validate_design_payload,
 )
 from workflow.services.engine import approve_task, reject_task
 
@@ -20,9 +27,7 @@ logger = logging.getLogger(__name__)
 
 
 class WorkflowDefinitionViewSet(viewsets.ModelViewSet):
-    queryset = WorkflowDefinition.objects.select_related("doc_type").prefetch_related(
-        "steps__assignee"
-    )
+    queryset = WorkflowDefinition.objects.select_related("doc_type")
     permission_classes = [IsAuthenticated]
     pagination_class = None
     http_method_names = ["get", "post", "put", "patch", "delete", "head", "options"]
@@ -61,9 +66,7 @@ class WorkflowDefinitionViewSet(viewsets.ModelViewSet):
             creator=request.user if request.user.is_authenticated else None,
             modifier=getattr(request.user, "username", ""),
         )
-        definition = WorkflowDefinition.objects.prefetch_related("steps__assignee").get(
-            pk=definition.pk
-        )
+        definition = WorkflowDefinition.objects.select_related("doc_type").get(pk=definition.pk)
         return DetailResponse(
             data=WorkflowDefinitionSerializer(definition).data,
             msg="创建成功",
@@ -76,9 +79,7 @@ class WorkflowDefinitionViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
         definition = serializer.save(modifier=getattr(request.user, "username", ""))
-        definition = WorkflowDefinition.objects.prefetch_related("steps__assignee").get(
-            pk=definition.pk
-        )
+        definition = WorkflowDefinition.objects.select_related("doc_type").get(pk=definition.pk)
         return DetailResponse(
             data=WorkflowDefinitionSerializer(definition).data,
             msg="更新成功",
@@ -90,6 +91,38 @@ class WorkflowDefinitionViewSet(viewsets.ModelViewSet):
         instance = self.get_object()
         instance.delete()
         return DetailResponse(data=[], msg="删除成功")
+
+    @action(detail=True, methods=["get", "put"], url_path="design")
+    def design(self, request, pk=None):
+        instance = self.get_object()
+        if request.method == "GET":
+            return DetailResponse(data=load_design_payload(instance), msg="查询成功")
+
+        from dvadmin.utils.json_response import ErrorResponse
+
+        serializer = WorkflowDesignWriteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        node_config = data["nodeConfig"]
+        errors = collect_design_errors(node_config)
+        if errors:
+            return ErrorResponse(data={"errors": errors}, msg="请完善流程配置", code=4000)
+
+        payload = normalize_definition_json(instance.definition_json)
+        payload["nodeConfig"] = node_config
+        payload["flowPermission"] = data.get("flowPermission", payload.get("flowPermission") or [])
+        if data.get("directorMaxLevel"):
+            payload["directorMaxLevel"] = data["directorMaxLevel"]
+
+        warnings = validate_design_payload(payload)
+        instance.definition_json = payload
+        instance.modifier = getattr(request.user, "username", "")
+        instance.save(update_fields=["definition_json", "update_datetime", "modifier"])
+
+        response_data = load_design_payload(instance)
+        if warnings:
+            response_data["runtime_warnings"] = warnings
+        return DetailResponse(data=response_data, msg="保存成功")
 
 
 class WorkflowTaskViewSet(viewsets.ReadOnlyModelViewSet):
@@ -153,4 +186,4 @@ class WorkflowTaskViewSet(viewsets.ReadOnlyModelViewSet):
             logger.exception("Reject task failed")
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         task.refresh_from_db()
-        return DetailResponse(data=WorkflowTaskSerializer(task).data, msg="已驳回")
+        return DetailResponse(data=WorkflowTaskSerializer(task).data, msg="已打回")

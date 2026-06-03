@@ -1,0 +1,33 @@
+export default {
+	message: {
+		pages: {
+			approvalWorkFlow: {
+				title: '審批流配置',
+				subtitle: '為文檔類型配置審批流程，上傳文檔時可選擇綁定並在列表中手動觸發。',
+				design: '流程設計',
+				newWorkflow: '新建審批流',
+				editBasic: '編輯',
+				openDesign: '流程設計',
+				name: '名稱',
+				code: '編碼',
+				docType: '綁定文檔類型',
+				active: '啟用',
+				steps: '審批步驟',
+				status: '狀態',
+				actions: '操作',
+				namePlaceholder: '如：8D報告審批流',
+				codePlaceholder: '如：8d_report',
+				docTypePlaceholder: '可選',
+				createDialogTitle: '新建審批流',
+				editDialogTitle: '編輯基礎信息',
+				saveSuccess: '保存成功',
+				saveFailed: '保存失敗',
+				loadFailed: '加載審批流失敗',
+				deleteConfirm: '確定刪除該審批流？',
+				deleted: '已刪除',
+				fillNameCode: '請填寫名稱和編碼',
+				notConfigured: '未配置',
+			},
+		},
+	},
+};

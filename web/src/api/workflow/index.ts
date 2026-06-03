@@ -73,7 +73,25 @@ export function fetchWorkflowDefinitions(params?: {
 	}).then((res: DvAdminResponse<WorkflowDefinition[]> | WorkflowDefinition[]) => unwrapList<WorkflowDefinition>(res));
 }
 
-export function createWorkflowDefinition(data: Partial<WorkflowDefinition> & { steps: WorkflowStep[] }): Promise<WorkflowDefinition> {
+export interface WorkflowDesignPayload {
+	tableId?: number;
+	workFlowDef: { id: number; name: string; code: string };
+	nodeConfig: Record<string, unknown>;
+	flowPermission: unknown[];
+	directorMaxLevel: number;
+	runtime_warnings?: string[];
+}
+
+export function fetchWorkflowDefinition(id: number): Promise<WorkflowDefinition> {
+	return request({
+		url: `/api/workflow/definitions/${id}/`,
+		method: 'get',
+	}).then((res: DvAdminResponse<WorkflowDefinition> | WorkflowDefinition) => unwrapItem<WorkflowDefinition>(res));
+}
+
+export function createWorkflowDefinition(
+	data: Pick<WorkflowDefinition, 'name' | 'code' | 'is_active'> & { doc_type_id?: number | null }
+): Promise<WorkflowDefinition> {
 	return request({
 		url: '/api/workflow/definitions/',
 		method: 'post',
@@ -83,13 +101,35 @@ export function createWorkflowDefinition(data: Partial<WorkflowDefinition> & { s
 
 export function updateWorkflowDefinition(
 	id: number,
-	data: Partial<WorkflowDefinition> & { steps?: WorkflowStep[] }
+	data: Partial<Pick<WorkflowDefinition, 'name' | 'code' | 'is_active'>> & { doc_type_id?: number | null }
 ): Promise<WorkflowDefinition> {
 	return request({
 		url: `/api/workflow/definitions/${id}/`,
 		method: 'put',
 		data,
 	}).then((res: DvAdminResponse<WorkflowDefinition> | WorkflowDefinition) => unwrapItem<WorkflowDefinition>(res));
+}
+
+export function fetchWorkflowDesign(id: number): Promise<WorkflowDesignPayload> {
+	return request({
+		url: `/api/workflow/definitions/${id}/design/`,
+		method: 'get',
+	}).then((res: DvAdminResponse<WorkflowDesignPayload> | WorkflowDesignPayload) =>
+		unwrapItem<WorkflowDesignPayload>(res)
+	);
+}
+
+export function saveWorkflowDesign(
+	id: number,
+	data: Pick<WorkflowDesignPayload, 'nodeConfig' | 'flowPermission' | 'directorMaxLevel'>
+): Promise<WorkflowDesignPayload> {
+	return request({
+		url: `/api/workflow/definitions/${id}/design/`,
+		method: 'put',
+		data,
+	}).then((res: DvAdminResponse<WorkflowDesignPayload> | WorkflowDesignPayload) =>
+		unwrapItem<WorkflowDesignPayload>(res)
+	);
 }
 
 export function deleteWorkflowDefinition(id: number): Promise<void> {

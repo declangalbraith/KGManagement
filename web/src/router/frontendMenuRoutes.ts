@@ -276,6 +276,27 @@ export const FRONTEND_MENU_ROUTES: FrontendMenuRouteItem[] = [
 	},
 	{ path: '/ai-assistant', name: 'kg-ai', title: 'message.pages.aiAssistant.title', pageComponent: '/system/aiAssistant/index', showInSidebar: false },
 	{ path: '/notifications', name: 'kg-notifications', title: 'message.pages.notifications.title', pageComponent: '/system/notifications/index', showInSidebar: false },
+	{
+		path: '/approval-workflow',
+		name: 'kg-approval-workflow',
+		title: 'message.pages.approvalWorkFlow.title',
+		pageComponent: '/system/approvalWorkFlow/index',
+		showInSidebar: false,
+		extraChildren: [
+			{
+				path: ':id/design',
+				name: 'kg-approval-workflow-design',
+				component: '/system/approvalWorkFlow/design/index',
+				meta: {
+					...noCacheMeta,
+					title: 'message.pages.approvalWorkFlow.design',
+					breadcrumbParents: [
+						{ title: 'message.pages.approvalWorkFlow.title', path: '/approval-workflow' },
+					],
+				},
+			},
+		],
+	},
 ];
 
 /** 侧边栏 i18n：path -> qualityLayout.sidebar 的 key（与 zh-cn 中 sidebar 字段对应） */
