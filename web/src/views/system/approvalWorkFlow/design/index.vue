@@ -209,6 +209,81 @@ function zoomSize(type: number) {
 <style>
 @import '../designer/css/workflow.css';
 
+/* workflow.css 会改 body 背景，离开页面后由布局自身背景覆盖 */
+body {
+	background: var(--next-bg-main-color, #f8f8f8);
+}
+
+.kg-wf-design {
+	display: flex;
+	flex-direction: column;
+	position: relative;
+	overflow: hidden;
+	height: calc(100vh - 160px);
+	min-height: 520px;
+	margin: -24px -28px 0;
+	background: #f1f2f3;
+	border: 1px solid rgba(15, 23, 42, 0.08);
+	border-radius: 8px;
+	isolation: isolate;
+}
+
+/* 覆盖开源全屏 fixed 布局，约束在内容区 */
+.kg-wf-design .fd-nav {
+	position: relative;
+	top: auto;
+	left: auto;
+	right: auto;
+	flex-shrink: 0;
+	z-index: 5;
+}
+
+.kg-wf-design .fd-nav-content {
+	position: relative;
+	top: auto;
+	left: auto;
+	right: auto;
+	bottom: auto;
+	flex: 1;
+	min-height: 0;
+	overflow: auto;
+	z-index: 1;
+	padding-bottom: 48px;
+}
+
+.kg-wf-design .dingflow-design {
+	position: relative;
+	min-height: 100%;
+	padding-top: 8px;
+}
+
+.kg-wf-design .zoom {
+	position: absolute;
+	top: 16px;
+	right: 16px;
+	margin-top: 0;
+	z-index: 4;
+}
+
+/* 抽屉 / 弹窗遮罩限制在设计器容器内 */
+.kg-wf-design :deep(.el-overlay) {
+	position: absolute !important;
+	inset: 0 !important;
+}
+
+.kg-wf-design :deep(.el-drawer) {
+	position: absolute !important;
+}
+
+.kg-wf-design :deep(.el-dialog) {
+	--el-dialog-margin-top: 8vh;
+}
+
+.kg-wf-design :deep(.el-overlay-dialog) {
+	position: absolute !important;
+	inset: 0 !important;
+}
+
 .kg-wf-design .button-publish {
 	min-width: 88px;
 }
@@ -217,9 +292,16 @@ function zoomSize(type: number) {
 	display: flex;
 	align-items: center;
 	justify-content: center;
+	width: 60px;
+	height: 60px;
 	border: none;
 	background: transparent;
+	color: #fff;
 	cursor: pointer;
-	padding: 0 8px;
+	padding: 0;
+}
+
+.kg-wf-design .fd-nav-back:hover {
+	background: #5af;
 }
 </style>

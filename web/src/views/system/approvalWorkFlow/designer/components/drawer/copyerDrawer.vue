@@ -5,7 +5,7 @@
  * @FilePath: /Workflow-Vue3/src/components/drawer/copyerDrawer.vue
 -->
 <template>
-    <el-drawer :append-to-body="true" title="抄送人设置" v-model="visible" class="set_copyer" :show-close="false" :size="550" :before-close="saveCopyer"> 
+    <el-drawer :append-to-body="false" title="抄送人设置" v-model="visible" class="set_copyer" :show-close="false" :size="550" :before-close="saveCopyer"> 
         <div class="demo-drawer__content">
             <div class="copyer_content drawer_content">
                 <el-button type="primary" @click="addCopyer">添加成员</el-button>

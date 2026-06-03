@@ -1,5 +1,5 @@
 <template>
-	<el-dialog v-model="visibleDialog" title="选择成员" width="560px" append-to-body class="promoter_person">
+	<el-dialog v-model="visibleDialog" title="选择成员" width="560px" :append-to-body="false" class="promoter_person">
 		<el-input v-model="searchVal" placeholder="搜索成员" clearable class="kg-wf-user-search" />
 		<div v-loading="loading" class="kg-wf-user-list">
 			<el-checkbox-group v-model="checkedIds">

@@ -5,7 +5,7 @@
  * @FilePath: /Workflow-Vue3/src/components/dialog/roleDialog.vue
 -->
 <template>
-   <el-dialog title="选择角色" v-model="visibleDialog" :width="600" append-to-body class="promoter_person">
+   <el-dialog title="选择角色" v-model="visibleDialog" :width="600" :append-to-body="false" class="promoter_person">
       <div class="person_body clear">
           <div class="person_tree l">
               <el-input v-model="searchVal" placeholder="搜索角色" clearable @input="getDebounceData($event,2)" />
