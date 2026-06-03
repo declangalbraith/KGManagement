@@ -113,6 +113,16 @@ class WorkflowTaskViewSet(viewsets.ReadOnlyModelViewSet):
             qs = qs.filter(assignee_id=self.request.user.id)
         return qs.order_by("-create_datetime")
 
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        serializer = self.get_serializer(queryset, many=True)
+        return SuccessResponse(data=serializer.data, msg="查询成功")
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        return DetailResponse(data=serializer.data, msg="查询成功")
+
     @action(detail=True, methods=["post"], url_path="approve")
     def approve(self, request, pk=None):
         task = self.get_object()
@@ -124,7 +134,7 @@ class WorkflowTaskViewSet(viewsets.ReadOnlyModelViewSet):
             logger.exception("Approve task failed")
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         task.refresh_from_db()
-        return Response(WorkflowTaskSerializer(task).data)
+        return DetailResponse(data=WorkflowTaskSerializer(task).data, msg="审批通过")
 
     @action(detail=True, methods=["post"], url_path="reject")
     def reject(self, request, pk=None):
@@ -143,4 +153,4 @@ class WorkflowTaskViewSet(viewsets.ReadOnlyModelViewSet):
             logger.exception("Reject task failed")
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         task.refresh_from_db()
-        return Response(WorkflowTaskSerializer(task).data)
+        return DetailResponse(data=WorkflowTaskSerializer(task).data, msg="已驳回")
