@@ -21,6 +21,12 @@ from doc_manage.serializers import (
 )
 from doc_manage.services import minio_client
 from doc_manage.services.bom_service import soft_delete_bom_document, upload_bom_document
+from doc_manage.services.general_doc_preview import (
+    PREVIEWABLE_PDF,
+    PREVIEWABLE_WORD,
+    docx_bytes_to_html,
+    normalize_ext,
+)
 from doc_manage.services.general_doc_service import (
     revise_general_document,
     soft_delete_general_document,
@@ -249,6 +255,53 @@ class GeneralDocumentViewSet(viewsets.ModelViewSet):
             f'attachment; filename="{document.original_filename}"'
         )
         return response
+
+    @action(detail=True, methods=["get"], url_path="preview")
+    def preview(self, request, pk=None):
+        document = self.get_object()
+        ext = normalize_ext(document.file_ext)
+
+        if ext in PREVIEWABLE_PDF:
+            try:
+                obj = minio_client.get_object_stream(document.minio_path)
+            except Exception as exc:
+                logger.exception("General document preview failed for id=%s", pk)
+                return Response({"detail": str(exc)}, status=status.HTTP_404_NOT_FOUND)
+            response = StreamingHttpResponse(
+                streaming_content=obj.stream(32 * 1024),
+                content_type="application/pdf",
+            )
+            response["Content-Disposition"] = (
+                f'inline; filename="{document.original_filename}"'
+            )
+            return response
+
+        if ext in PREVIEWABLE_WORD:
+            try:
+                data = minio_client.get_object_bytes(document.minio_path)
+                html_content = docx_bytes_to_html(data)
+            except ValueError as exc:
+                return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+            except Exception as exc:
+                logger.exception("General document preview failed for id=%s", pk)
+                return Response({"detail": str(exc)}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"format": "html", "html": html_content})
+
+        if ext == "doc":
+            return Response(
+                {
+                    "detail": (
+                        "暂不支持在线预览 .doc 格式，请下载后使用 Word 打开，"
+                        "或另存为 .docx 后重新上传"
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return Response(
+            {"detail": "当前文件类型不支持正文预览，仅支持 PDF 与 Word（.docx）"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
     @action(detail=True, methods=["post"], url_path="approve")
     def approve(self, request, pk=None):

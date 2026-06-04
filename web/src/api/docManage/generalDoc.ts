@@ -163,13 +163,26 @@ export function deleteGeneralDocument(id: number): Promise<void> {
 	}) as Promise<void>;
 }
 
-export async function downloadGeneralDocument(id: number, filename: string): Promise<void> {
+async function authorizedFetch(path: string): Promise<Response> {
 	const baseURL = import.meta.env.VITE_API_URL as string;
 	const { Session } = await import('/@/utils/storage');
 	const token = Session.get('token');
-	const response = await fetch(`${baseURL}/api/doc-manage/general-doc/${id}/download/`, {
+	return fetch(`${baseURL}${path}`, {
 		headers: token ? { Authorization: `JWT ${token}` } : {},
 	});
+}
+
+async function parseErrorDetail(response: Response): Promise<string> {
+	try {
+		const data = (await response.json()) as { detail?: string };
+		return data.detail || '';
+	} catch {
+		return '';
+	}
+}
+
+export async function downloadGeneralDocument(id: number, filename: string): Promise<void> {
+	const response = await authorizedFetch(`/api/doc-manage/general-doc/${id}/download/`);
 	if (!response.ok) {
 		throw new Error('download failed');
 	}
@@ -180,4 +193,27 @@ export async function downloadGeneralDocument(id: number, filename: string): Pro
 	link.download = filename;
 	link.click();
 	URL.revokeObjectURL(url);
+}
+
+export interface GeneralDocPreviewHtml {
+	format: 'html';
+	html: string;
+}
+
+/** PDF: binary stream; Word (.docx): JSON with HTML body. */
+export async function fetchGeneralDocPreview(
+	id: number,
+	fileExt: string
+): Promise<{ mode: 'pdf'; blob: Blob } | { mode: 'html'; html: string }> {
+	const ext = fileExt.toLowerCase().replace(/^\./, '');
+	const response = await authorizedFetch(`/api/doc-manage/general-doc/${id}/preview/`);
+	if (!response.ok) {
+		const detail = await parseErrorDetail(response);
+		throw new Error(detail || 'preview failed');
+	}
+	if (ext === 'pdf') {
+		return { mode: 'pdf', blob: await response.blob() };
+	}
+	const data = (await response.json()) as GeneralDocPreviewHtml;
+	return { mode: 'html', html: data.html || '' };
 }
