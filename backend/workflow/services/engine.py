@@ -55,13 +55,15 @@ def trigger_workflow(*, document: GeneralDocument, user) -> WorkflowInstance:
             id=document.workflow_definition_id,
             is_active=True,
         )
-        .prefetch_related("steps__assignee")
         .first()
     )
     if not definition:
         raise ValidationError({"detail": "审批流不存在或已禁用"})
 
-    snapshot = build_definition_snapshot(definition)
+    try:
+        snapshot = build_definition_snapshot(definition)
+    except ValueError as exc:
+        raise ValidationError({"detail": str(exc)}) from exc
     first_step = snapshot["steps"][0]
 
     instance = WorkflowInstance.objects.create(

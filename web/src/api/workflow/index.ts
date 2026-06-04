@@ -1,4 +1,4 @@
-import request from '/@/utils/request';
+import { request } from '/@/utils/service';
 
 export interface WorkflowStep {
 	id?: number;
@@ -47,6 +47,21 @@ export interface WorkflowAuditLog {
 	create_datetime: string;
 }
 
+type DvAdminResponse<T> = { code?: number; data?: T; msg?: string };
+
+function unwrapList<T>(res: DvAdminResponse<T[]> | T[]): T[] {
+	if (Array.isArray(res)) return res;
+	if (res?.code === 2000 && Array.isArray(res.data)) return res.data;
+	return [];
+}
+
+function unwrapItem<T>(res: DvAdminResponse<T> | T): T {
+	if (res && typeof res === 'object' && 'code' in res && (res as DvAdminResponse<T>).code === 2000) {
+		return (res as DvAdminResponse<T>).data as T;
+	}
+	return res as T;
+}
+
 export function fetchWorkflowDefinitions(params?: {
 	doc_type_id?: number;
 	is_active?: boolean;
@@ -55,33 +70,73 @@ export function fetchWorkflowDefinitions(params?: {
 		url: '/api/workflow/definitions/',
 		method: 'get',
 		params,
-	}) as Promise<WorkflowDefinition[]>;
+	}).then((res: DvAdminResponse<WorkflowDefinition[]> | WorkflowDefinition[]) => unwrapList<WorkflowDefinition>(res));
 }
 
-export function createWorkflowDefinition(data: Partial<WorkflowDefinition> & { steps: WorkflowStep[] }): Promise<WorkflowDefinition> {
+export interface WorkflowDesignPayload {
+	tableId?: number;
+	workFlowDef: { id: number; name: string; code: string };
+	nodeConfig: Record<string, unknown>;
+	flowPermission: unknown[];
+	directorMaxLevel: number;
+	runtime_warnings?: string[];
+}
+
+export function fetchWorkflowDefinition(id: number): Promise<WorkflowDefinition> {
+	return request({
+		url: `/api/workflow/definitions/${id}/`,
+		method: 'get',
+	}).then((res: DvAdminResponse<WorkflowDefinition> | WorkflowDefinition) => unwrapItem<WorkflowDefinition>(res));
+}
+
+export function createWorkflowDefinition(
+	data: Pick<WorkflowDefinition, 'name' | 'code' | 'is_active'> & { doc_type_id?: number | null }
+): Promise<WorkflowDefinition> {
 	return request({
 		url: '/api/workflow/definitions/',
 		method: 'post',
 		data,
-	}) as Promise<WorkflowDefinition>;
+	}).then((res: DvAdminResponse<WorkflowDefinition> | WorkflowDefinition) => unwrapItem<WorkflowDefinition>(res));
 }
 
 export function updateWorkflowDefinition(
 	id: number,
-	data: Partial<WorkflowDefinition> & { steps?: WorkflowStep[] }
+	data: Partial<Pick<WorkflowDefinition, 'name' | 'code' | 'is_active'>> & { doc_type_id?: number | null }
 ): Promise<WorkflowDefinition> {
 	return request({
 		url: `/api/workflow/definitions/${id}/`,
 		method: 'put',
 		data,
-	}) as Promise<WorkflowDefinition>;
+	}).then((res: DvAdminResponse<WorkflowDefinition> | WorkflowDefinition) => unwrapItem<WorkflowDefinition>(res));
+}
+
+export function fetchWorkflowDesign(id: number): Promise<WorkflowDesignPayload> {
+	return request({
+		url: `/api/workflow/definitions/${id}/design/`,
+		method: 'get',
+	}).then((res: DvAdminResponse<WorkflowDesignPayload> | WorkflowDesignPayload) =>
+		unwrapItem<WorkflowDesignPayload>(res)
+	);
+}
+
+export function saveWorkflowDesign(
+	id: number,
+	data: Pick<WorkflowDesignPayload, 'nodeConfig' | 'flowPermission' | 'directorMaxLevel'>
+): Promise<WorkflowDesignPayload> {
+	return request({
+		url: `/api/workflow/definitions/${id}/design/`,
+		method: 'put',
+		data,
+	}).then((res: DvAdminResponse<WorkflowDesignPayload> | WorkflowDesignPayload) =>
+		unwrapItem<WorkflowDesignPayload>(res)
+	);
 }
 
 export function deleteWorkflowDefinition(id: number): Promise<void> {
 	return request({
 		url: `/api/workflow/definitions/${id}/`,
 		method: 'delete',
-	}) as Promise<void>;
+	}).then(() => undefined);
 }
 
 export function fetchMyWorkflowTasks(status = 'pending'): Promise<WorkflowTask[]> {
@@ -89,14 +144,14 @@ export function fetchMyWorkflowTasks(status = 'pending'): Promise<WorkflowTask[]
 		url: '/api/workflow/tasks/',
 		method: 'get',
 		params: { status, mine: true },
-	}) as Promise<WorkflowTask[]>;
+	}).then((res: DvAdminResponse<WorkflowTask[]> | WorkflowTask[]) => unwrapList<WorkflowTask>(res));
 }
 
 export function approveWorkflowTask(taskId: number): Promise<WorkflowTask> {
 	return request({
 		url: `/api/workflow/tasks/${taskId}/approve/`,
 		method: 'post',
-	}) as Promise<WorkflowTask>;
+	}).then((res: DvAdminResponse<WorkflowTask> | WorkflowTask) => unwrapItem<WorkflowTask>(res));
 }
 
 export function rejectWorkflowTask(taskId: number, comment?: string): Promise<WorkflowTask> {
@@ -104,5 +159,5 @@ export function rejectWorkflowTask(taskId: number, comment?: string): Promise<Wo
 		url: `/api/workflow/tasks/${taskId}/reject/`,
 		method: 'post',
 		data: { comment: comment || '' },
-	}) as Promise<WorkflowTask>;
+	}).then((res: DvAdminResponse<WorkflowTask> | WorkflowTask) => unwrapItem<WorkflowTask>(res));
 }

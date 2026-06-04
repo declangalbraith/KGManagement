@@ -1,0 +1,33 @@
+export default {
+	message: {
+		pages: {
+			approvalWorkFlow: {
+				title: '审批流配置',
+				subtitle: '为文档类型配置审批流程，上传文档时可选择绑定并在列表中手动触发。',
+				design: '流程设计',
+				newWorkflow: '新建审批流',
+				editBasic: '编辑',
+				openDesign: '流程设计',
+				name: '名称',
+				code: '编码',
+				docType: '绑定文档类型',
+				active: '启用',
+				steps: '审批步骤',
+				status: '状态',
+				actions: '操作',
+				namePlaceholder: '如：8D报告审批流',
+				codePlaceholder: '如：8d_report',
+				docTypePlaceholder: '可选',
+				createDialogTitle: '新建审批流',
+				editDialogTitle: '编辑基础信息',
+				saveSuccess: '保存成功',
+				saveFailed: '保存失败',
+				loadFailed: '加载审批流失败',
+				deleteConfirm: '确定删除该审批流？',
+				deleted: '已删除',
+				fillNameCode: '请填写名称和编码',
+				notConfigured: '未配置',
+			},
+		},
+	},
+};

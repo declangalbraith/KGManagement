@@ -9,6 +9,11 @@ urlpatterns = [
         name="workflow-definition-list",
     ),
     path(
+        "definitions/<int:pk>/design/",
+        WorkflowDefinitionViewSet.as_view({"get": "design", "put": "design"}),
+        name="workflow-definition-design",
+    ),
+    path(
         "definitions/<int:pk>/",
         WorkflowDefinitionViewSet.as_view(
             {
