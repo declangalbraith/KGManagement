@@ -196,13 +196,34 @@
 			:title="doc.name"
 			:doc-type="viewerDocType"
 			:watermark-text="`CONFIDENTIAL - ${doc.name} - ${todayStr}`"
-		/>
+			@download="onDownload"
+		>
+			<div v-if="previewLoading" class="kg-viewer__preview-state">
+				<el-icon class="is-loading" :size="28"><Loading /></el-icon>
+				<span>{{ t('message.pages.generalDoc.previewLoading') }}</span>
+			</div>
+			<div v-else-if="previewError" class="kg-viewer__preview-state is-error">
+				<el-icon :size="28"><WarningFilled /></el-icon>
+				<span>{{ previewError }}</span>
+			</div>
+			<iframe
+				v-else-if="previewMode === 'pdf' && previewPdfUrl"
+				class="kg-viewer__pdf-frame"
+				:src="previewPdfUrl"
+				:title="doc.name"
+			/>
+			<div
+				v-else-if="previewMode === 'html' && previewHtml"
+				class="kg-viewer__html-content"
+				v-html="previewHtml"
+			/>
+		</DocumentViewer>
 	</div>
 	<div v-else class="kg-gdoc-detail kg-gdoc-detail--center kg-gdoc-detail--empty">{{ t('message.pages.generalDoc.notFound') }}</div>
 </template>
 
 <script setup lang="ts" name="kg-general-doc-detail">
-import { computed, onMounted, ref, type Component } from 'vue';
+import { computed, onMounted, ref, watch, type Component } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { ElMessage, ElMessageBox } from 'element-plus';
@@ -218,16 +239,19 @@ import {
 	Lock,
 	MagicStick,
 	Promotion,
+	Loading,
 	Reading,
 	Select,
 	Share,
 	View,
+	WarningFilled,
 } from '@element-plus/icons-vue';
 import {
 	approveGeneralDocument,
 	downloadGeneralDocument,
 	fetchGeneralDoc,
 	fetchGeneralDocAuditLogs,
+	fetchGeneralDocPreview,
 	rejectGeneralDocument,
 	type GeneralDocument,
 } from '/@/api/docManage/generalDoc';
@@ -240,6 +264,11 @@ const router = useRouter();
 const doc = ref<GeneralDocument | null>(null);
 const loading = ref(true);
 const viewerOpen = ref(false);
+const previewLoading = ref(false);
+const previewError = ref('');
+const previewMode = ref<'pdf' | 'html' | null>(null);
+const previewPdfUrl = ref('');
+const previewHtml = ref('');
 
 const todayStr = computed(() => new Date().toISOString().split('T')[0]);
 
@@ -358,9 +387,53 @@ function goBack() {
 	router.push('/document-management?tab=general-doc');
 }
 
+function revokePreviewPdfUrl() {
+	if (previewPdfUrl.value) {
+		URL.revokeObjectURL(previewPdfUrl.value);
+		previewPdfUrl.value = '';
+	}
+}
+
+function resetPreviewState() {
+	previewLoading.value = false;
+	previewError.value = '';
+	previewMode.value = null;
+	previewHtml.value = '';
+	revokePreviewPdfUrl();
+}
+
+async function loadPreviewContent() {
+	if (!doc.value) return;
+	previewLoading.value = true;
+	previewError.value = '';
+	previewMode.value = null;
+	previewHtml.value = '';
+	revokePreviewPdfUrl();
+	try {
+		const result = await fetchGeneralDocPreview(doc.value.id, doc.value.file_ext);
+		if (result.mode === 'pdf') {
+			previewPdfUrl.value = URL.createObjectURL(result.blob);
+			previewMode.value = 'pdf';
+		} else {
+			previewHtml.value = result.html;
+			previewMode.value = 'html';
+		}
+	} catch (err: unknown) {
+		const message = err instanceof Error ? err.message : '';
+		previewError.value = message || t('message.pages.generalDoc.previewFailed');
+	} finally {
+		previewLoading.value = false;
+	}
+}
+
 function openPreview() {
 	viewerOpen.value = true;
+	loadPreviewContent();
 }
+
+watch(viewerOpen, (open) => {
+	if (!open) resetPreviewState();
+});
 
 function toastInfo(key: string) {
 	ElMessage.info(t(`message.pages.generalDoc.${key}`));
