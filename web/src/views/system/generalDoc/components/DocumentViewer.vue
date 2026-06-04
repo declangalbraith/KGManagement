@@ -22,7 +22,7 @@
 								<el-icon><Printer /></el-icon>
 								{{ t('message.pages.generalDoc.print') }}
 							</button>
-							<button type="button" class="kg-viewer__btn" @click="onDownload">
+							<button type="button" class="kg-viewer__btn" @click="emit('download')">
 								<el-icon><Download /></el-icon>
 								{{ t('message.pages.generalDoc.download') }}
 							</button>
@@ -84,7 +84,7 @@ const props = withDefaults(
 	}
 );
 
-const emit = defineEmits<{ 'update:modelValue': [boolean] }>();
+const emit = defineEmits<{ 'update:modelValue': [boolean]; download: [] }>();
 const { t } = useI18n();
 
 const typeLabel = computed(() => props.docType.toUpperCase());
@@ -95,10 +95,6 @@ function close() {
 
 function onPrint() {
 	ElMessage.info(t('message.pages.generalDoc.printToast'));
-}
-
-function onDownload() {
-	ElMessage.success(t('message.pages.generalDoc.downloadToast'));
 }
 
 watch(
@@ -282,6 +278,56 @@ watch(
 	border-radius: 2px;
 	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 	padding: 48px 64px;
+
+	&:has(.kg-viewer__pdf-frame) {
+		max-width: none;
+		padding: 0;
+		min-height: auto;
+	}
+}
+
+:deep(.kg-viewer__pdf-frame) {
+	display: block;
+	width: 100%;
+	min-height: calc(90vh - 120px);
+	border: none;
+}
+
+:deep(.kg-viewer__html-content) {
+	line-height: 1.75;
+	color: #0f172a;
+	font-size: 15px;
+	word-break: break-word;
+
+	p {
+		margin: 0 0 1em;
+	}
+	table {
+		width: 100%;
+		border-collapse: collapse;
+		margin: 1em 0;
+		font-size: 14px;
+	}
+	td {
+		border: 1px solid #e2e8f0;
+		padding: 8px 10px;
+		vertical-align: top;
+	}
+}
+
+:deep(.kg-viewer__preview-state) {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	min-height: 320px;
+	gap: 12px;
+	color: #64748b;
+	font-size: 14px;
+}
+
+:deep(.kg-viewer__preview-state.is-error) {
+	color: #dc2626;
 }
 
 .kg-viewer__placeholder {

@@ -76,4 +76,9 @@ urlpatterns = [
         GeneralDocumentViewSet.as_view({"get": "download"}),
         name="doc-manage-general-doc-download",
     ),
+    path(
+        "general-doc/<int:pk>/preview/",
+        GeneralDocumentViewSet.as_view({"get": "preview"}),
+        name="doc-manage-general-doc-preview",
+    ),
 ]
