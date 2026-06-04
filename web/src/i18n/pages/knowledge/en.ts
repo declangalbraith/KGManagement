@@ -120,6 +120,8 @@ export default {
 				graph: {
 					chatTitle: 'Graph intelligent search',
 					chatSubtitle: 'Natural-language deep queries across projects and components',
+					chatWelcome:
+						"Hello! I'm the graph intelligent assistant. You can ask questions about ingested quality reports, such as CRH dryer faults (5228) or findings from the Foshan Line 3 brake-not-releasing investigation.",
 					chatPlaceholder: 'Enter your query...',
 					quickQuery1: 'CRH dryer fault 5228',
 					quickQuery2: 'Foshan Line 3 brake not releasing',

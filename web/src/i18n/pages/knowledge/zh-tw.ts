@@ -108,6 +108,8 @@ export default {
 				graph: {
 					chatTitle: '圖譜智能檢索',
 					chatSubtitle: '支持跨項目、跨部件的自然語言深度查詢',
+					chatWelcome:
+						'您好！我是圖譜智能助手。您可以提問已入庫的質量報告相關問題，例如復興號干燥器故障（5228）或佛山3號線制動不緩解調查結論。',
 					chatPlaceholder: '輸入查詢需求...',
 					quickQuery1: '復興號干燥器5228故障',
 					quickQuery2: '佛山3號線制動不緩解',

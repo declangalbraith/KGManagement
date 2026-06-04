@@ -115,6 +115,8 @@ export default {
 				graph: {
 					chatTitle: '图谱智能检索',
 					chatSubtitle: '支持跨项目、跨部件的自然语言深度查询',
+					chatWelcome:
+						'您好！我是图谱智能助手。您可以提问已入库的质量报告相关问题，例如复兴号干燥器故障（5228）或佛山3号线制动不缓解调查结论。',
 					chatPlaceholder: '输入查询需求...',
 					quickQuery1: '复兴号干燥器5228故障',
 					quickQuery2: '佛山3号线制动不缓解',

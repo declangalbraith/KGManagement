@@ -231,14 +231,38 @@
 
 当前 8D 使用以下配置校验 JWT：
 
-- 密钥：与 8D `settings.secret_key` 对齐的共享内部密钥
-- 算法：与 8D `settings.jwt_algorithm` 对齐
+- 密钥：与 8D `KG_8D_JWT_SECRET` 对齐的共享内部密钥
+- 算法：与 8D `KG_8D_JWT_ALGORITHM` 对齐
+
+当前推荐双方统一使用以下配置名：
+
+- `KG_8D_JWT_SECRET`
+- `KG_8D_JWT_ALGORITHM`
+- `KG_8D_JWT_TTL_SEC`
+
+当前 8D 为了兼容旧配置，仍接受：
+
+- `SECRET_KEY`
+- `JWT_ALGORITHM`
+- `JWT_EXPIRE_MINUTES`
+
+但 Django 联调不应继续围绕旧名字沟通，应统一以 `KG_8D_JWT_*` 为对接口径。
 
 联调前必须确认：
 
 - Django 签名密钥与 8D 校验密钥一致
 - Django 使用的算法与 8D 配置一致
 - 双方时间同步正常，避免 `exp` 误判
+
+推荐 Django 侧配置片段：
+
+```python
+KG_8D_JWT_SECRET = "<与 8D 后端完全一致的共享密钥>"
+KG_8D_JWT_ALGORITHM = "HS256"
+KG_8D_JWT_TTL_SEC = 3600
+```
+
+当前 8D 会把 `KG_8D_JWT_TTL_SEC` 自动折算成内部分钟配置，因此 Django 侧用秒表达 TTL 即可。
 
 如果未来要切到独立 integration secret 或独立 issuer 规则，应单独升级本文档，不要默认沿用当前实现细节。
 

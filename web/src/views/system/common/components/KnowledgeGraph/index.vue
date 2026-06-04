@@ -241,7 +241,6 @@ import {
 } from '../../graph/cluster';
 import type { GraphLink, GraphNode } from '../../graph/types';
 import { FALLBACK_LEGEND, mapApiLink, mapApiNode } from '../../graph/utils';
-import { graphChatWelcome } from '../../graph/mock';
 
 interface ChatMessage {
 	id: string;
@@ -270,7 +269,9 @@ const buildJobOptions = ref<KgBuildJobItem[]>([]);
 const selectedNode = shallowRef<GraphNode | null>(null);
 const activeHighlight = ref<string[] | null>(null);
 
-const chatHistory = ref<ChatMessage[]>([{ id: 'msg-0', role: 'ai', content: graphChatWelcome }]);
+const chatHistory = ref<ChatMessage[]>([
+	{ id: 'msg-0', role: 'ai', content: t('message.pages.knowledge.graph.chatWelcome') },
+]);
 const isQuerying = ref(false);
 
 const typeLegendConfig = computed(() => ({ ...FALLBACK_LEGEND, ...typeLegend.value }));

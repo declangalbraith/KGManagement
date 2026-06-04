@@ -3,7 +3,7 @@
 **API 版本**：v0.1.0
 **对应 PRD 版本**：v1.5
 **对应 Schema 版本**：v0.1.0
-**最后更新**：2026-05-07
+**最后更新**：2026-06-03
 **文件路径**：docs/API.md
 
 本文档定义 8D 知识图谱平台 MVP v0.1 阶段的所有 REST 接口契约。所有接口必须严格遵循本文档定义的请求/响应格式。前端通过 `openapi-typescript` 从后端自动生成的 OpenAPI schema 派生类型，**禁止手写后端 DTO 类型**。
@@ -113,7 +113,15 @@
 Authorization: Bearer <jwt_token>
 ```
 
-JWT 包含 claims：`user_id, role, exp, iat`。Token 有效期默认 8 小时。
+当前 integration facade Bearer JWT 至少要求以下 claims：`sub, username, role, org_id, exp`。
+
+当前兼容别名：
+
+- 主体：`user_id`、`uid`
+- 用户名：`preferred_username`、`name`
+- 组织：`org_code`、`tenant_id`
+
+Token 有效期由部署配置控制；当前 Django / 8D 对齐配置名为 `KG_8D_JWT_TTL_SEC`。
 
 ### 1.9 权限模型（v0.1 简化）
 
@@ -157,10 +165,12 @@ JWT 包含 claims：`user_id, role, exp, iat`。Token 有效期默认 8 小时�
 | | `/documents/{doc_id}/preview` | GET | 文档预览 URL |
 | | `/documents/{doc_id}/raw` | GET | 下载原始文件 |
 | **Integration** | `/integration/8d/documents` | POST | Django facade 上传文档 |
-| | `/integration/8d/documents` | GET | 按外部业务键查询文档 |
+| | `/integration/8d/documents` | GET | 按来源键列出文档 |
 | | `/integration/8d/documents/{doc_id}` | GET | facade 文档详情 |
 | | `/integration/8d/documents/{doc_id}/pipeline` | POST | 触发或复用最近一次 pipeline |
 | | `/integration/8d/documents/{doc_id}/pipeline` | GET | facade 任务状态 |
+| | `/integration/8d/documents/{doc_id}/pipeline/cancel` | POST | 取消最近一次 pending/running 任务 |
+| | `/integration/8d/documents/{doc_id}/pipeline/retry` | POST | 重试最近一次 failed/cancelled 任务 |
 | | `/integration/8d/documents/{doc_id}/result` | GET | 稳定结果 DTO |
 | | `/integration/8d/documents/{doc_id}/graph` | GET | 稳定图谱 DTO |
 | **Pipeline** | `/documents/{doc_id}/pipeline` | POST | 触发 pipeline |
@@ -192,13 +202,19 @@ JWT 包含 claims：`user_id, role, exp, iat`。Token 有效期默认 8 小时�
 
 为 Django 主项目接入新增一层稳定 facade，统一走 `/api/v1/integration/8d/*`。
 
+当前运行时 schema / ontology 的英文单页说明见 `docs/django-current-runtime.schema`。Django 端在做 facade DTO 对接、字段映射、下游类型消费时，应优先以该运行时单页为准，而不是直接按完整 ontology 基线做实现假设。
+
 设计原则：
 
 - Django 只依赖 facade DTO，不直接绑定内部 `/documents/{doc_id}/extract`、图谱查询或 extraction 聚合结构
-- facade 上传接口除文件外，必须携带 `source_system`、`source_module`、`source_record_id`、`source_record_type`、`operator_id`、`org_id`
+- facade 上传接口以 Bearer token 为主身份源；`operator_id`、`org_id` 可由 token 提供，也可冗余透传，但若透传值与 token 不一致会直接报 400
 - facade 结果接口固定返回 `entities[] + relationships[] + stats`
 - facade 图接口固定返回 `nodes[] + edges[] + meta`
 - Django 只能把 `relationships` 中显式存在的边解释为已确认业务关系，不能依赖 runtime 自动补边
+- facade 列表接口当前使用 `offset` / `limit` 分页，不使用 `page` / `page_size`
+- facade 任务状态当前归一为 `not_started / pending / running / succeeded / failed / cancelled`
+- facade 同时暴露 `cancellable`、`retryable` 和标准 `error` 结构，供 Django 直接驱动按钮状态与错误展示
+- facade 上传幂等不是全局 `idempotency_key`，而是按 `source_system + source_module + source_record_id + source_record_type + org_id + idempotency_key` 的“同源请求幂等”
 
 当前 facade 路径：
 
@@ -207,8 +223,28 @@ JWT 包含 claims：`user_id, role, exp, iat`。Token 有效期默认 8 小时�
 - `GET /integration/8d/documents/{doc_id}`
 - `POST /integration/8d/documents/{doc_id}/pipeline`
 - `GET /integration/8d/documents/{doc_id}/pipeline`
+- `POST /integration/8d/documents/{doc_id}/pipeline/cancel`
+- `POST /integration/8d/documents/{doc_id}/pipeline/retry`
 - `GET /integration/8d/documents/{doc_id}/result`
 - `GET /integration/8d/documents/{doc_id}/graph`
+
+当前 Bearer token 约束：
+
+- 统一使用 `Authorization: Bearer <jwt>`
+- 至少应提供 `sub`、`username`、`role`、`org_id`、`exp`
+- 当前兼容别名：`user_id` / `uid`、`preferred_username` / `name`、`org_code` / `tenant_id`
+- 当前 8D 配置名已与 Django 对齐：`KG_8D_JWT_SECRET`、`KG_8D_JWT_ALGORITHM`、`KG_8D_JWT_TTL_SEC`
+
+当前 facade DTO 摘要：
+
+- `POST /integration/8d/documents` 返回 `IntegrationDocumentCreateResponse`：`doc_id`、`status`、`duplicate_of_doc_id`、`source_ref`、`created_at`
+- `GET /integration/8d/documents` 返回 `IntegrationDocumentListResponse`：`items[]`、`total`、`offset`、`limit`
+- `GET /integration/8d/documents/{doc_id}` 返回 `IntegrationDocumentDetailResponse`
+- `POST /integration/8d/documents/{doc_id}/pipeline` 返回 `IntegrationPipelineStartResponse`
+- `POST /integration/8d/documents/{doc_id}/pipeline/cancel` / `/retry` 返回 `IntegrationPipelineActionResponse`
+- `GET /integration/8d/documents/{doc_id}/pipeline` 返回 `IntegrationPipelineStatusResponse`
+- `GET /integration/8d/documents/{doc_id}/result` 返回 `IntegrationResultResponse`
+- `GET /integration/8d/documents/{doc_id}/graph` 返回 `IntegrationGraphResponse`
 
 更完整的接入语义、字段解释和 DTO 示例，见根目录 [Django主项目集成方案.md](../Django%E4%B8%BB%E9%A1%B9%E7%9B%AE%E9%9B%86%E6%88%90%E6%96%B9%E6%A1%88.md) 与 [Django与8D职责拆分清单.md](../Django%E4%B8%8E8D%E8%81%8C%E8%B4%A3%E6%8B%86%E5%88%86%E6%B8%85%E5%8D%95.md)。
 

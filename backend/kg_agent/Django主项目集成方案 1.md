@@ -11,6 +11,8 @@
 
 本方案的目标不是简单把代码放进同一个仓库，而是在保证工程可用、边界清晰、后续可演进的前提下完成集成。
 
+当前运行时 schema / ontology 的英文单页说明见 `docs/django-current-runtime.schema`，Django 端联调、字段映射与下游类型对接应优先以该文件为准。
+
 ---
 
 ## 2. 推荐方案
@@ -77,6 +79,24 @@ Django 负责统一入口、认证、权限前置和业务上下文；8D 子系�
 - Django 用户到 8D `owner/operator/audit` 的真实身份映射
 - Django 视角的端到端联调闭环
 
+### 2.5 面向多知识类型的演进判断
+
+后续 Django 主项目合并后，不应把当前系统限制为“只能处理 8D 报告”。更稳妥的演进方式是把当前 8D 能力视为第一套已落地的知识类型：
+
+- `document_type_code=8d_report`
+- 一套 8D ontology / schema
+- 一套 8D extraction profile
+- 一套 8D Skill Pack
+- 一套稳定 facade DTO
+
+新增其他知识文档类型时，不建议复制一套新的 8D pipeline，也不建议让 Django 直接写 Neo4j 或生产 schema。推荐采用“Schema-first + Draft/Publish + Codex-assisted”模式：
+
+- Django 负责文档类型、schema / ontology 草稿、审核发布入口和业务权限前置
+- 8D-kg 负责 schema 校验、profile 校验、dry-run、发布固化、pipeline 执行和写图治理
+- Codex 负责辅助生成草稿、解释差异、检查风险和修复验证错误，但不直接发布生产 schema
+
+详细落地方案见根目录 `多知识类型Ontology与Codex辅助入图方案.md`。后续 Django 联调时，应把该文档与本文、`Django与8D职责拆分清单.md` 一起作为对接基线。
+
 ---
 
 ## 3. 最终架构建议
@@ -118,7 +138,7 @@ Django 负责统一入口、认证、权限前置和业务上下文；8D 子系�
 - 文档上传
 - 去重与存储
 - 异步抽取任务编排
-- 图谱写入与回查
+- 候选图生成、审核后图谱写入与回查
 - 图谱展示
 - 抽取结果详情
 - 子系统内部审计与运行状态
@@ -143,6 +163,20 @@ Django 负责统一入口、认证、权限前置和业务上下文；8D 子系�
 - `/quality/8d/` -> 8D 前端
 - `/quality/8d/api/` -> 8D 后端接口
 - `/quality/8d/ws/` -> 8D WebSocket
+
+当前实现说明：
+
+- 前端已支持通过 `VITE_APP_BASE_PATH` 构建到主项目子路径下运行；未显式设置时默认根路径 `/`
+- 前端 API 默认跟随同一子路径前缀，例如 `VITE_APP_BASE_PATH=/quality/8d` 时，默认 API 基址为 `/quality/8d/api/v1`
+- 如主项目网关需要把 API 转发到其他前缀或独立域名，可额外显式设置 `VITE_API_BASE_URL`
+- NeoVis 作为当前正式图谱渲染路径；直连 Neo4j 时，若 Django 前端入口与 8D 服务不在同一主机，前端应优先使用 `VITE_NEO4J_BROWSER_URI / VITE_NEO4J_BROWSER_USER / VITE_NEO4J_BROWSER_PASSWORD / VITE_NEO4J_BROWSER_DATABASE` 指向“浏览器可直连”的 Bolt 端点，而不是复用后端/容器侧地址
+- 当前前端运行时代码未建立 WebSocket 连接，`/quality/8d/ws/` 仍作为后续接入预留路径，不是本次改造的实际依赖
+
+当前验证结论：
+
+- 已在当前远端部署环境完成实测：`/quality/8d/graph` 页面可正常打开并加载图谱，NeoVis 已按浏览器专用 Bolt 配置生效
+- 当前前端生产构建已确认包含 `VITE_NEO4J_BROWSER_*` 对应的浏览器侧 Neo4j 连接配置
+- 该结论的前提是“访问页面的浏览器本身可以连通配置中的 Bolt 端点”；因此 Django 若部署在其他网络环境，仍需以浏览器到 Bolt 的真实可达性作为最终准入条件
 
 这样可以做到：
 
@@ -199,19 +233,22 @@ Django 登录后，为 8D 子系统签发短时内部访问凭证，8D 服务只
 ### 5.4 当前状态
 
 - 方案已明确：不新增平行登录体系，而是在 integration facade 上接 Django 内部凭证
-- 当前未完成：`upload_user_id`、节点 `owner_id`、`audit_log.user_id` 仍未完全切到真实 Django 用户
-- 当前未完成：facade 仍主要依赖 `operator_id` 等上下文字段，尚未完全收回到凭证 claims
+- 已完成：`upload_user_id`、节点默认 `owner_id`、`audit_log.user_id` 已收敛到 Bearer token 映射出的真实 Django 用户
+- 已完成：facade 当前以 Bearer claims 为主身份源；`operator_id`、`org_id`、`requested_by` 只作为兼容性冗余字段保留，并要求与 token 一致
 
 ---
 
 ## 6. 接口边界建议
 
-不要让 Django 直接调用当前所有内部接口，建议新增一组主项目专用接入接口，例如：
+不要让 Django 直接调用当前所有内部接口，当前已冻结的主项目接入入口统一为：
 
-- `/api/integration/8d/documents`
-- `/api/integration/8d/tasks`
-- `/api/integration/8d/graphs`
-- `/api/integration/8d/results`
+- `/api/v1/integration/8d/documents`
+- `/api/v1/integration/8d/documents/{doc_id}`
+- `/api/v1/integration/8d/documents/{doc_id}/pipeline`
+- `/api/v1/integration/8d/documents/{doc_id}/pipeline/cancel`
+- `/api/v1/integration/8d/documents/{doc_id}/pipeline/retry`
+- `/api/v1/integration/8d/documents/{doc_id}/result`
+- `/api/v1/integration/8d/documents/{doc_id}/graph`
 
 ### 6.1 Django 需要对接的最小能力接口
 
@@ -270,13 +307,15 @@ Django 登录后，为 8D 子系统签发短时内部访问凭证，8D 服务只
 
 推荐 Django 侧只调用以下 facade：
 
-- `POST /api/integration/8d/documents`
-- `GET /api/integration/8d/documents`
-- `GET /api/integration/8d/documents/{doc_id}`
-- `POST /api/integration/8d/documents/{doc_id}/pipeline`
-- `GET /api/integration/8d/documents/{doc_id}/pipeline`
-- `GET /api/integration/8d/documents/{doc_id}/result`
-- `GET /api/integration/8d/documents/{doc_id}/graph`
+- `POST /api/v1/integration/8d/documents`
+- `GET /api/v1/integration/8d/documents`
+- `GET /api/v1/integration/8d/documents/{doc_id}`
+- `POST /api/v1/integration/8d/documents/{doc_id}/pipeline`
+- `GET /api/v1/integration/8d/documents/{doc_id}/pipeline`
+- `POST /api/v1/integration/8d/documents/{doc_id}/pipeline/cancel`
+- `POST /api/v1/integration/8d/documents/{doc_id}/pipeline/retry`
+- `GET /api/v1/integration/8d/documents/{doc_id}/result`
+- `GET /api/v1/integration/8d/documents/{doc_id}/graph`
 
 其中：
 
@@ -287,14 +326,18 @@ Django 登录后，为 8D 子系统签发短时内部访问凭证，8D 服务只
 
 ### 6.3.2 Django 发起请求时必须携带的字段
 
-除认证 token 外，上传或触发任务时至少应带：
+除认证 token 外，上传时至少应带：
 
 - `source_system`
 - `source_module`
 - `source_record_id`
 - `source_record_type`
-- `operator_id`
-- `org_id`
+
+身份字段当前以 token 为主：
+
+- `operator_id` 可不传；若传则必须与 token 主体一致
+- `org_id` 可不传；若传则必须与 token 中的组织一致
+- `requested_by` 可不传；若在触发任务时传入，则必须与 token 主体一致
 
 如主项目需要项目域隔离，再附加：
 
@@ -302,6 +345,17 @@ Django 登录后，为 8D 子系统签发短时内部访问凭证，8D 服务只
 - `project_scope`
 
 这些字段应被视为 integration facade 的强约束，而不是可有可无的透传字段。
+
+列表接口当前查询参数为：
+
+- `source_system`
+- `source_module`
+- `source_record_id`
+- `source_record_type`
+- `offset`
+- `limit`
+
+当前不是 `page` / `page_size` 分页。
 
 ### 6.3.3 Django 对返回结果的解释约束
 
@@ -331,13 +385,21 @@ Skill-first 改造后，Django 侧必须按以下方式解释结果：
 
 ### 6.3.5 任务成功的含义
 
-`pipeline.status=success` 仅表示处理流程成功完成，不等于“所有业务关系都已抽全”。
+`pipeline.status=succeeded` 仅表示处理流程成功完成，不等于“所有业务关系都已抽全”。
 
 Django 侧应区分：
 
-- 任务成功但结果保守：允许没有某些业务边
-- 任务失败：有明确 `error` 与 `trace_id`
-- 任务部分成功：可展示部分结果，但应提示用户存在缺失
+- `not_started`：当前文档还没有 run
+- `pending` / `running`：任务已排队或处理中
+- `succeeded`：任务完成，但结果仍可能是保守抽取
+- `failed`：任务失败，读取 `error` 与 `trace_id`
+- `cancelled`：用户主动取消；当前对外单独暴露，不再混同于普通失败
+
+状态接口同时返回：
+
+- `cancellable`：是否允许调用 cancel
+- `retryable`：是否允许调用 retry
+- `error`：标准错误对象，包含 `code`、`message`、`cancelled`、`retryable`、`detail`
 
 不要把“缺少某条关系”直接当成系统故障。
 
@@ -347,7 +409,7 @@ Django 侧应区分：
 
 #### A. 上传文档
 
-请求：`POST /api/integration/8d/documents`
+请求：`POST /api/v1/integration/8d/documents`
 
 ```json
 {
@@ -381,9 +443,15 @@ Django 侧应区分：
 }
 ```
 
+补充语义：
+
+- 如果 `idempotency_key` 与 `source_system + source_module + source_record_id + source_record_type + org_id` 同时命中已有文档，接口会直接返回已有 `doc_id`，HTTP 200
+- 如果文件 `sha256` 已存在，也会直接返回已有文档，HTTP 200
+- 同源幂等不是全局 `idempotency_key` 去重，Django 不应跨来源复用同一个 key 期待命中同一文档
+
 #### B. 触发任务
 
-请求：`POST /api/integration/8d/documents/{doc_id}/pipeline`
+请求：`POST /api/v1/integration/8d/documents/{doc_id}/pipeline`
 
 ```json
 {
@@ -403,9 +471,14 @@ Django 侧应区分：
 }
 ```
 
+补充语义：
+
+- 若最近一次任务仍处于 `pending` / `running` 且 `force=false`，接口会直接复用已有 `run_id`，不会重复排队
+- 正常新排队时，返回 `status="queued"`
+
 #### C. 任务状态
 
-响应：`GET /api/integration/8d/documents/{doc_id}/pipeline`
+响应：`GET /api/v1/integration/8d/documents/{doc_id}/pipeline`
 
 ```json
 {
@@ -416,13 +489,47 @@ Django 侧应区分：
   "started_at": "2026-06-02T06:31:01Z",
   "finished_at": null,
   "trace_id": "92a2bf4d-0e8c-4d19-8fc1-1521d95ce5b5",
+  "cancellable": true,
+  "retryable": false,
   "error": null
 }
 ```
 
-#### D. 结果摘要
+#### D. 取消任务
 
-响应：`GET /api/integration/8d/documents/{doc_id}/result`
+请求：`POST /api/v1/integration/8d/documents/{doc_id}/pipeline/cancel`
+
+响应：
+
+```json
+{
+  "run_id": "c2b709a6-9155-4a4c-b1b0-8e6fa0c7fb36",
+  "doc_id": "8b4c1b4f-8d31-44f2-bc1d-09f47a3d4f82",
+  "status": "cancelled",
+  "accepted_at": "2026-06-02T06:35:00Z",
+  "message": "pipeline cancelled"
+}
+```
+
+#### E. 重试任务
+
+请求：`POST /api/v1/integration/8d/documents/{doc_id}/pipeline/retry`
+
+响应：
+
+```json
+{
+  "run_id": "d6d33b5d-59ad-48e7-84d9-5b3c4e65a2b0",
+  "doc_id": "8b4c1b4f-8d31-44f2-bc1d-09f47a3d4f82",
+  "status": "queued",
+  "accepted_at": "2026-06-02T06:36:00Z",
+  "message": "pipeline retry queued"
+}
+```
+
+#### F. 结果摘要
+
+响应：`GET /api/v1/integration/8d/documents/{doc_id}/result`
 
 ```json
 {
@@ -467,9 +574,9 @@ Django 侧应区分：
 - `attributes` 可以承载原始字段，但这些字段不替代 `relationships`
 - Django 若需要展示“责任组织 / 供应商 / 根因 / 验证措施”，必须以 `relationships` 为准
 
-#### E. 图谱视图
+#### G. 图谱视图
 
-响应：`GET /api/integration/8d/documents/{doc_id}/graph`
+响应：`GET /api/v1/integration/8d/documents/{doc_id}/graph`
 
 ```json
 {
@@ -496,22 +603,113 @@ Django 侧应区分：
 }
 ```
 
-#### F. 设计原则
+#### H. 设计原则
 
 - DTO 必须稳定、扁平、可直接由 Django 序列化后转给页面
 - facade 对外暴露的 `entity_type` / `rel_type` 应与图展示一致，但不要求 Django 理解内部所有 schema 子类型
 - `trace_id`、`doc_id`、`run_id`、`source_record_id` 必须能在 Django 与 8D 两侧串起来
 - 若未来内部 extraction DTO 调整，优先在 facade 内部适配，不要把变更直接抛给 Django
 
+### 6.3.7 入图前人工审核流程
+
+与 Django 合并后，推荐把当前“抽取后直接入图”的链路调整为“抽取后生成候选图，人工审核后再入图”。正式流程应为：
+
+```text
+抽取 -> 生成候选图 Draft -> 返回 Django 审核 -> Django 修改/确认 -> 8D-kg 入图 -> 审计留痕
+```
+
+这里的候选图建议命名为 `GraphDraft` 或 `ExtractionReviewDraft`。它是抽取结果的可审核结构化快照，不是生产图谱写入指令。
+
+关键边界：
+
+- Django 负责展示、审核、修改、确认候选实体和关系
+- Django 返回的是审核后的候选图 JSON，不直接写 Neo4j
+- 8D-kg 负责接收审核结果、重新校验、生成 commit plan、幂等写图和审计留痕
+- 所有入图仍必须满足 schema / ontology、关系端点、溯源字段、权限和幂等约束
+
+建议状态机：
+
+```text
+extracting
+  -> draft_created
+  -> pending_review
+  -> review_submitted
+  -> validating
+  -> ready_to_commit
+  -> committing
+  -> committed
+```
+
+旁路状态：
+
+```text
+rejected
+validation_failed
+superseded
+commit_failed
+```
+
+一期建议最小 review facade：
+
+- `GET /api/v1/integration/8d/documents/{doc_id}/graph-draft`
+- `POST /api/v1/integration/8d/documents/{doc_id}/graph-draft/save`
+- `POST /api/v1/integration/8d/documents/{doc_id}/graph-draft/submit`
+- `POST /api/v1/integration/8d/documents/{doc_id}/graph-draft/commit`
+
+建议 `GraphDraft` 至少包含：
+
+```json
+{
+  "draft_id": "uuid",
+  "doc_id": "uuid",
+  "run_id": "uuid",
+  "status": "pending_review",
+  "draft_version": 1,
+  "schema_version": "v0.1.0",
+  "extraction_version": "pipeline-v0.1.0",
+  "entities": [],
+  "relationships": [],
+  "evidence": [],
+  "warnings": []
+}
+```
+
+Django 提交审核结果时，应带 `draft_id`、`base_version`、`review_decision`、`review_comment`、`entities[]`、`relationships[]`。`base_version` 用于乐观锁，避免多人审核互相覆盖。
+
+8D-kg 在 commit 前必须重新校验：
+
+- `base_version` 是否匹配
+- `entity_type` / `rel_type` 是否在 ontology 白名单
+- 关系两端实体是否存在，端点类型是否合法
+- 必填属性、业务键、置信度、review action 是否合法
+- `supporting_chunks` 是否属于当前文档
+- 溯源字段是否完整且未被伪造
+- 当前用户是否具备 submit / commit 权限
+- 是否存在重复实体、重复边或破坏幂等写图的修改
+
+校验通过后，8D-kg 不应直接把 Django JSON 写入图数据库，而应先生成 `GraphCommitPlan`，再执行：
+
+1. 计算原始 draft、审核后 draft、最终 commit plan 的 diff
+2. 写入 review snapshot、commit snapshot 和 audit log
+3. 使用 `MERGE` 幂等写 Neo4j
+4. 写入 `MENTIONED_IN` 双向溯源边
+5. 更新 document / run / draft 状态为 `committed`
+
+一期 UI 可以先由 Django 做表格式审核，不必一开始实现复杂图编辑器：实体表、关系表、证据片段只读展示、校验错误定位到行即可满足联调闭环。
+
 ### 6.4 当前状态
 
 - 已完成：`/api/v1/integration/8d/documents`
 - 已完成：`/api/v1/integration/8d/documents/{doc_id}/pipeline`
+- 已完成：`/api/v1/integration/8d/documents/{doc_id}/pipeline/cancel`
+- 已完成：`/api/v1/integration/8d/documents/{doc_id}/pipeline/retry`
+- 已完成：`/api/v1/integration/8d/documents/{doc_id}`
 - 已完成：`/api/v1/integration/8d/documents/{doc_id}/result`
 - 已完成：`/api/v1/integration/8d/documents/{doc_id}/graph`
 - 已完成：稳定 DTO 与契约测试已落地
+- 已完成：认证映射、同源幂等、失败/取消/重试状态语义已对齐到 facade
 - 已完成：来源键与 `idempotency_key` 已完成数据库落库与迁移
-- 待完成：认证映射、失败/重试、Django 视角 e2e 仍需补齐
+- 待完成：Django 视角 e2e 仍需补齐
 
 ---
 
@@ -741,6 +939,19 @@ Django 侧应区分：
 - 统一消息中心或站内通知
 - 统一审计平台或统一操作日志查询入口
 
+### 10.5 多知识类型与 ontology 管理
+
+未来如果主项目需要把设备手册、工艺规范、故障案例、检验记录等其他知识文档也纳入知识图谱，应提前规划以下能力：
+
+- 文档类型管理：用 `document_type_code` 区分 8D 报告和其他知识文档
+- ontology / schema 版本管理：节点、关系、属性、业务键和溯源字段必须版本化
+- extraction profile 管理：每类文档对应 reader、splitter、table extractor、Skill Pack、字段归一化和写图校验配置
+- Draft / Publish 流程：草稿必须经过 validate、dry-run、人工审核后才能发布
+- Codex 辅助建模：Codex 可以生成和修复草稿，但不能直接改生产图谱或绕过审核发布
+- facade 兼容：Django 仍只消费稳定 `entities[] + relationships[] + stats` 结果，不直接绑定内部 extraction DTO
+
+建议把这部分规划作为二期到三期之间的独立工作包推进，不要和一期 Django 接入收口混在同一个发布目标中。
+
 ---
 
 ## 11. 分阶段落地建议
@@ -759,6 +970,7 @@ Django 侧应区分：
 - 用户身份、组织信息、业务来源键可以传入 8D
 - 日志中至少能用 trace_id 或 task_id 串联主项目与 8D 请求
 - integration facade 已明确“显式关系优先”的返回语义，Django 不依赖 runtime 补边
+- 抽取后先形成 `GraphDraft` 候选图，Django 审核确认后再由 8D-kg 校验并入图
 
 ### 阶段二：工程硬化
 
@@ -773,6 +985,7 @@ Django 侧应区分：
 - 监控、日志、链路追踪补齐
 - 形成明确的状态机文档和回调/轮询策略文档
 - 形成可演练的异常处理手册
+- 完善 GraphDraft 审核状态机、版本锁、校验错误结构、commit snapshot 和审计留痕
 
 ### 阶段三：代码层增强折中
 
@@ -785,7 +998,25 @@ Django 侧应区分：
 - 形成内部 SDK 或稳定 service facade
 - 评估是否有必要将部分同步查询能力提供给 Django 以 SDK 方式复用
 
-### 11.4 当前推荐工作流
+### 11.4 阶段四：多知识类型平台化
+
+目标：把当前 8D 专用能力升级为可承载多类知识文档的 schema-first 入图平台。
+
+建议按以下顺序推进：
+
+1. 先把当前 8D 能力整理成第一套 `ontology spec + extraction profile`，不改变现有业务行为。
+2. 再增加 Django 侧 Draft / Publish 管理入口，让 Django 可以创建和审核文档类型、ontology、extraction profile 草稿。
+3. 然后接入 Codex 辅助生成、检查和修复草稿，但所有结果必须进入草稿和审核流程。
+4. 最后让生产 pipeline 按 `document_type_code + published_profile_version` 执行，并保持 facade DTO 对 Django 稳定。
+
+验收标准：
+
+- `8d_report` 作为第一种文档类型继续稳定运行
+- 新文档类型可以先 dry-run，再发布进入生产执行
+- Django 不直接操作 Neo4j、内部 extraction DTO 或生产 schema
+- 每次 schema / ontology 变更都有版本、发布人、发布时间、验证记录和回滚策略
+
+### 11.5 当前推荐工作流
 
 结合当前落地情况，建议后续严格按下面的工作流推进。
 

@@ -17,6 +17,3 @@ export const graphTypeConfig: Record<BuilderGraphNodeType, { color: string; labe
 	Solution: { color: '#10b981', label: '解决方案', icon: '✓' },
 	QualityDoc: { color: '#4f46e5', label: '质量文档', icon: '📄' },
 };
-
-export const graphChatWelcome =
-	'您好！我是图谱智能助手。您可以提问已入库的质量报告相关问题，例如复兴号干燥器故障（5228）或佛山3号线制动不缓解调查结论。';
