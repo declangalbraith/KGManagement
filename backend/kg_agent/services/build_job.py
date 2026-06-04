@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import logging
+import os
+import shutil
 import tempfile
 import uuid
 from typing import Any, Dict, Optional, Tuple
@@ -15,10 +17,11 @@ from kg_agent.conf import get_eight_d_settings
 from kg_agent.exceptions import EightDIntegrationError
 from kg_agent.mappers.graph_viz import map_pipeline_status
 from kg_agent.models import KgBuildJob
+from kg_agent.services.doc_convert import convert_doc_to_docx
 
 logger = logging.getLogger(__name__)
 
-ALLOWED_UPLOAD_EXT = {".txt", ".md", ".docx", ".pdf"}
+ALLOWED_UPLOAD_EXT = {".txt", ".md", ".doc", ".docx", ".pdf"}
 
 
 def _operator_context(user) -> Tuple[str, str]:
@@ -27,11 +30,23 @@ def _operator_context(user) -> Tuple[str, str]:
     return operator_id, resolve_eight_d_org_id(user)
 
 
+def _cleanup_materialized_path(path: str) -> None:
+    try:
+        os.unlink(path)
+    except OSError:
+        pass
+    parent = os.path.dirname(path)
+    if os.path.basename(parent).startswith("kg_doc_convert_"):
+        shutil.rmtree(parent, ignore_errors=True)
+
+
 def _content_type_for_name(file_name: str) -> str:
     lower = file_name.lower()
     if lower.endswith(".pdf"):
         return "application/pdf"
-    if lower.endswith(".docx"):
+    if lower.endswith((".docx", ".doc")):
+        if lower.endswith(".doc"):
+            return "application/msword"
         return "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     if lower.endswith(".md"):
         return "text/markdown"
@@ -51,6 +66,14 @@ def materialize_upload(*, uploaded_file=None, content: str = "", title: str = ""
         with open(path, "wb") as fh:
             for chunk in uploaded_file.chunks():
                 fh.write(chunk)
+        if ext == ".doc":
+            docx_path = convert_doc_to_docx(path)
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
+            path = docx_path
+            name = f"{os.path.splitext(name)[0]}.docx"
         return path, name
 
     if not (content or "").strip():
@@ -100,10 +123,7 @@ def create_build_job_from_upload(
                 content_type=_content_type_for_name(file_name),
             )
     finally:
-        try:
-            os.unlink(file_path)
-        except OSError:
-            pass
+        _cleanup_materialized_path(file_path)
 
     doc_id = upload_resp.get("doc_id") or ""
     if not doc_id:

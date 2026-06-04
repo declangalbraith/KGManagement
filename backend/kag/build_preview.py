@@ -15,7 +15,7 @@ from .runtime import prepare_project_runtime
 
 logger = logging.getLogger(__name__)
 
-ALLOWED_UPLOAD_EXT = {".txt", ".md", ".docx"}
+ALLOWED_UPLOAD_EXT = {".txt", ".md", ".doc", ".docx"}
 
 
 def _save_text_source(work_dir: str, content: str, title: Optional[str] = None) -> str:
@@ -37,6 +37,10 @@ def _save_uploaded_file(work_dir: str, uploaded_file) -> str:
     with open(path, "wb") as fh:
         for chunk in uploaded_file.chunks():
             fh.write(chunk)
+    if ext == ".doc":
+        from kg_agent.services.doc_convert import convert_doc_to_docx
+
+        path = convert_doc_to_docx(path)
     return path
 
 
@@ -46,13 +50,17 @@ def _read_plain_text(source_path: str) -> str:
     if ext in (".txt", ".md"):
         with open(source_path, "r", encoding="utf-8") as fh:
             return fh.read()
-    if ext == ".docx":
+    if ext in (".docx", ".doc"):
+        if ext == ".doc":
+            from kg_agent.services.doc_convert import convert_doc_to_docx
+
+            source_path = convert_doc_to_docx(source_path)
         from docx import Document
 
         doc = Document(source_path)
         parts = [p.text.strip() for p in doc.paragraphs if p.text and p.text.strip()]
         if not parts:
-            raise ValueError("docx 文件未提取到文本内容")
+            raise ValueError("Word 文件未提取到文本内容")
         return "\n\n".join(parts)
     raise ValueError(f"不支持的文件类型: {ext}")
 

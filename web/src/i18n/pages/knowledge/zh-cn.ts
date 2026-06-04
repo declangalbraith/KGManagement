@@ -33,7 +33,7 @@ export default {
 					dataSource: '数据源输入',
 					sourcePlaceholder: '粘贴故障报告、维修记录或标准文档...',
 					uploadFile: '上传文档',
-					uploadHint: '支持 .txt、.md、.docx、.pdf，与文本输入二选一',
+					uploadHint: '支持 .txt、.md、.doc、.docx、.pdf，与文本输入二选一（.doc 将自动转为 .docx 后构建）',
 					startBuild: '开始构建',
 					building: '构建进行中...',
 					buildStatus: '任务状态',

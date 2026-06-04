@@ -29,7 +29,7 @@
 							:auto-upload="false"
 							:show-file-list="true"
 							:limit="1"
-							accept=".txt,.md,.docx,.pdf"
+							accept=".txt,.md,.doc,.docx,.pdf"
 							:on-change="handleFileChange"
 							:on-remove="handleFileRemove"
 						>

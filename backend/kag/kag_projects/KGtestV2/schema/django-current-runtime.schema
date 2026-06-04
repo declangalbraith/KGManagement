@@ -1,106 +1,222 @@
-RuntimeSchema: EightD KG Current Runtime Contract for Django
-SchemaVersion: v0.1.0
-PipelineVersion: pipeline-v0.1.0
-Language: en
-Audience: Django integration engineers
+namespace EightDRuntime
 
-Summary:
-  This file describes the current runtime schema and ontology that are actually enforced by the 8D KG service today.
-  It is the integration-facing runtime contract, not the full product ontology backlog.
+# EightD KG Current Runtime Contract for Django (schema v0.1.0 / pipeline-v0.1.0)
+# Runtime entity subset enforced by 8D KG service; relations trimmed to allowed runtime types only.
 
-CanonicalRuntimeSources:
-  VersionSource: backend/app/core/versioning.py
-  ExtractionSchemaRoot: backend/app/schemas/extraction.py
-  RuntimeEntitySubset: backend/app/schemas/entity.py
-  GraphAllowList: backend/app/graph/client.py
-  FullOntologyBaseline: docs/SCHEMA.md
+ProductInstance(产品实例): EntityType
+	desc: 一台具体出厂的实物机器,由产品序列号唯一标识。
+	properties:
+		serialNumber(产品序列号): Text
+			index: Text
+			constraint: NotNull,Unique
+		assetCode(资产编码): Text
+			index: Text
+		commissionDate(启用日期): Text
+		status(状态): Text
+			index: Text
+		ownerName(所属客户名称): Text
+			index: Text
+		siteCity(所在城市): Text
+			index: Text
+		siteCountry(所在国家): Text
+		siteCode(地点编码): Text
+			index: Text
+	relations:
+		has8D(关联8D): EightDReport
+		hasCurrentPart(当前安装件): PartSerial
+		hasEvent(发生事件): ProductEvent
+		ownedBy(所属客户): Organization
 
-VersionRules:
-  Active schema_version is derived from backend/app/core/versioning.py.
-  Active pipeline_version is derived from backend/app/core/versioning.py.
-  If this file and runtime code ever diverge, runtime code is authoritative until the docs are updated.
+PartSerial(部件序列件): EntityType
+	desc: 装机的实物零件,由序列号+批次号联合唯一标识,安装于某台ProductInstance。
+	properties:
+		status(状态): Text
+			index: Text
+		batchNo(批次号): Text
+			index: Text
+		serialNumber(部件序列号): Text
+			index: Text
+		supplierName(供应商名称): Text
+			index: Text
+	relations:
+		involvedIn8D(关联8D): EightDReport
+		involvedInEvent(关联事件): ProductEvent
+		replacedBy(替换后件): PartSerial
+		replaces(替换前件): PartSerial
+		suppliedBy(供应商): Organization
+		installedOn(安装于产品): ProductInstance
 
-ExtractionContract:
-  RootModel: ExtractionResult
-  RequiredShape:
-    report: EightDReport | null
-    event: ProductEvent | null
-    failure_modes: FailureMode[]
-    causes: CauseItem[]
-    actions: ActionItem[]
-    product_instances: ProductInstance[]
-    part_serials: PartSerial[]
-    organizations: Organization[]
-    persons: Person[]
-    failure_products: FailureProduct[]
-    failure_product_mentions: FailureProductMention[]
-    relationships: RelationTriple[]
-    chunks: Chunk[]
-    stats: dict
+ProductEvent(产品事件): EntityType
+	desc: 产品发生的一次事件(故障/异常/客诉/试验),发生在ProductInstance上,可触发8D报告。
+	properties:
+		eventId(事件ID): Text
+			index: Text
+		eventCode(事件编码): Text
+			index: Text
+		eventType(事件类型): Text
+			index: Text
+		severity(严重级别): Text
+			index: Text
+		symptom(现象描述): Text
+			index: Text
+		eventTime(发生时间): Text
+			index: Text
+		status(处理状态): Text
+			index: Text
+		reporterName(上报人姓名): Text
+			index: Text
+	relations:
+		happenedOn(发生于产品): ProductInstance
+		responsibleOrg(责任组织): Organization
+		relatedFailureMode(关联失效模式): FailureMode
+		relatedSerial(关联序列件): PartSerial
+		has8DReport(8D报告): EightDReport
+		reportedByPerson(上报人): Person
+		involvesPerson(涉及人员): Person
 
-RuntimeEntityTypes:
-  - EightDReport
-  - ProductEvent
-  - FailureMode
-  - CauseItem
-  - ActionItem
-  - ProductInstance
-  - PartSerial
-  - Organization
-  - Person
-  - FailureProduct
-  - FailureProductMention
-  - Chunk
+EightDReport(8D报告): EntityType
+	desc: 8D问题分析报告,由reportNo唯一标识,对应一个源事件,含D2/D4/D5/D7等阶段,同号合并。
+	properties:
+		reportNo(8D编号): Text
+			index: Text
+			constraint: NotNull,Unique
+		issueTitle(问题标题): Text
+			index: Text
+		reportStatus(报告状态): Text
+			index: Text
+		d2ProblemStatement(D2问题描述): Text
+			index: TextAndVector
+		d4RootCauseSummary(D4根因分析摘要): Text
+			index: TextAndVector
+		d5PermanentCorrectionSummary(D5永久纠正摘要): Text
+			index: TextAndVector
+		d7PreventionSummary(D7防再发摘要): Text
+			index: TextAndVector
+		ownerName(负责人姓名): Text
+			index: Text
+		ownerRole(负责人角色): Text
+	relations:
+		sourceEvent(源事件): ProductEvent
+		affectedProduct(影响产品): ProductInstance
+		affectedSerial(影响序列件): PartSerial
+		rootCause(根因项): CauseItem
+		correctiveAction(纠正措施): ActionItem
+		preventiveAction(预防措施): ActionItem
+		responsibleOrg(责任组织): Organization
+		authoredByPerson(撰写人): Person
+		reviewedByPerson(审核人): Person
+		involvesPerson(涉及人员): Person
+		hasChunk(文档片段): Chunk
 
-GraphOntology:
-  AllowedLabels:
-    - EightDReport
-    - ProductEvent
-    - ProductInstance
-    - PartSerial
-    - FailureMode
-    - CauseItem
-    - ActionItem
-    - Organization
-    - Person
-    - FailureProduct
-    - FailureProductMention
-    - Chunk
-  AllowedRelationshipTypes:
-    - HAS_8D_REPORT
-    - RELATED_FAILURE_MODE
-    - ROOT_CAUSE
-    - CORRECTIVE_ACTION
-    - PREVENTIVE_ACTION
-    - VERIFIES_CAUSE
-    - HAPPENED_ON
-    - RELATED_SERIAL
-    - AFFECTED_PRODUCT
-    - AFFECTED_SERIAL
-    - RESPONSIBLE_ORG
-    - INVOLVES_PERSON
-    - AUTHORED_BY_PERSON
-    - REVIEWED_BY_PERSON
-    - REPORTED_BY_PERSON
-    - OWNED_BY_PERSON
-    - TARGET_SERIAL
-    - TARGET_PRODUCT
-    - INSTALLED_ON
-    - SUPPLIED_BY
-    - MENTIONED_IN
-    - MENTIONS
-    - CHUNK_OF_REPORT
-    - MENTIONS_FAILURE_PRODUCT
-    - INSTANCE_OF_FAILURE_PRODUCT
+CauseItem(原因项): EntityType
+	desc: 8D报告中的原因,causeType取值:根本原因/中间原因/直接原因,因果链以"导致/造成"连接。
+	properties:
+		causeId(原因ID): Text
+			index: Text
+		title(标题): Text
+			index: Text
+		causeType(原因类型): Text
+			index: Text
+		isVerified(是否已验证): Text
+			index: Text
+		evidence(证据描述): Text
+	relations:
+		relatedFailureMode(关联失效模式): FailureMode
+		relatedSerial(关联序列件): PartSerial
+		belongsToReport(所属8D): EightDReport
+		relatedEvent(关联事件): ProductEvent
 
-InterpretationRules:
-  docs/SCHEMA.md is the full ontology baseline and design intent.
-  backend/app/schemas/extraction.py plus backend/app/schemas/entity.py define the current runtime extraction subset.
-  backend/app/graph/client.py is the final graph admission gate.
-  Django integration should depend on this runtime contract, not on non-runtime ontology sections.
+ActionItem(措施项): EntityType
+	desc: 8D报告中的措施,actionType取值:临时措施D3/纠正措施D5/预防措施D7/根因分析D4。
+	properties:
+		actionId(措施ID): Text
+			index: Text
+		title(标题): Text
+			index: Text
+		actionType(措施类型): Text
+			index: Text
+		status(状态): Text
+			index: Text
+		ownerName(负责人姓名): Text
+			index: Text
+	relations:
+		belongsToReport(所属8D): EightDReport
+		verifiesCause(验证原因项): CauseItem
+		relatedEvent(关联事件): ProductEvent
+		targetSerial(作用序列件): PartSerial
+		targetProduct(作用产品): ProductInstance
+		responsibleOrg(责任组织): Organization
+		ownedByPerson(负责人): Person
 
-IntegrationGuidance:
-  Use the integration facade as the only external entry point.
-  Expect only the entity types and relationship types listed above.
-  Do not assume that every entity or relationship from docs/SCHEMA.md is implemented at runtime.
-  Treat this file as the current runtime snapshot for API and downstream mapping work.
+FailureMode(失效模式): EntityType
+	desc: 标准化失效模式名(如压力超差/密封失效/裂纹),同义表述应合并为同一FailureMode。
+	properties:
+		modeCode(失效模式编码): Text
+			index: Text
+			constraint: NotNull,Unique
+
+Organization(组织机构): EntityType
+	desc: 公司/部门/客户/供应商,orgType取值:制造商/供应商/客户/部门/项目组,客户供应商都用此类型。
+	properties:
+		orgType(组织类型): Text
+			index: Text
+		orgCode(组织编码): Text
+			index: Text
+
+Person(人员): EntityType
+	desc: 8D报告或事件中涉及的人员(作者/审核人/上报人/负责人)。
+	properties:
+		personName(姓名): Text
+			index: Text
+		personRole(角色): Text
+			index: Text
+		orgName(所属组织名称): Text
+			index: Text
+	relations:
+		belongsToOrg(所属组织): Organization
+
+FailureProduct(失效产品): EntityType
+	desc: 标准化失效产品名,同义表述应合并为同一FailureProduct。
+	properties:
+		productCode(产品编码): Text
+			index: Text
+			constraint: NotNull,Unique
+		productName(产品名称): Text
+			index: Text
+	relations:
+		hasMention(被提及): FailureProductMention
+
+FailureProductMention(失效产品提及): EntityType
+	desc: 文档中对失效产品的一次表面提及,可关联到标准化FailureProduct。
+	properties:
+		surfaceForm(表面形式): Text
+			index: Text
+		mentionContext(提及上下文): Text
+	relations:
+		instanceOfFailureProduct(标准化产品): FailureProduct
+		mentionedIn(来源片段): Chunk
+
+Chunk(文档片段): EntityType
+	desc: 从8D文档切分的文本或表格片段,chunk_id格式为reportNo#section_path#para_idx。
+	properties:
+		chunkId(片段ID): Text
+			index: Text
+			constraint: NotNull,Unique
+		sectionPath(章节路径): Text
+			index: Text
+		paraIdx(段落序号): Text
+		chunkRole(片段角色): Text
+			index: Text
+		text(文本内容): Text
+			index: TextAndVector
+		tokenCount(词元数): Text
+		isTable(是否表格): Text
+		isPlaceholder(是否占位符): Text
+	relations:
+		chunkOfReport(所属8D报告): EightDReport
+		mentionsFailureProduct(提及失效产品): FailureProductMention
+		mentionsProduct(提及产品): ProductInstance
+		mentionsSerial(提及序列件): PartSerial
+		mentionsFailureMode(提及失效模式): FailureMode
+		mentionsOrg(提及组织): Organization
+		mentionsPerson(提及人员): Person

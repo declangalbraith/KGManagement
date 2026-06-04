@@ -17,6 +17,10 @@
 | `KG_8D_SOURCE_SYSTEM` | 默认 `django-main` |
 | `KG_8D_SOURCE_MODULE` | 默认 `knowledge` |
 
+### `.doc` 上传
+
+8D pipeline 仅接受 docx/pdf；上传 `.doc` 时 Django 会先转为 `.docx` 再提交。转换顺序：LibreOffice（`soffice`）→ Windows Microsoft Word（需 `pywin32`）→ `antiword`/`catdoc` 纯文本回退。Linux 部署建议安装 LibreOffice。
+
 认证协议详见 [Django token claims 对接约定.md](./Django%20token%20claims%20%E5%AF%B9%E6%8E%A5%E7%BA%A6%E5%AE%9A.md)：Django 按当前登录用户签发 claims `sub`、`username`、`role`（`admin`/`operator`）、`org_id`、`exp`，**不要**在请求体传 `operator_id` / `requested_by` 作为身份真值。
 
 ## 数据库
@@ -44,7 +48,7 @@ Django **仅**调用 8D `/api/v1/integration/8d/*`，不直连内部 extraction 
 
 1. 8D 服务健康：`GET {KG_8D_BASE_URL}/health`
 2. PostgreSQL / Neo4j / MinIO（8D 侧）凭证正确
-3. 上传 docx → 轮询 `status` 至 `success` → `result` / `graph` 有数据
+3. 上传 docx（或 .doc，服务端自动转为 docx）→ 轮询 `status` 至 `success` → `result` / `graph` 有数据
 4. 前端知识库「图谱构建」「知识图谱」页可走通
 
 ## 文档

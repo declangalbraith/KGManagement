@@ -12,7 +12,18 @@ from kg_agent.models import KgBuildJob
 
 logger = logging.getLogger(__name__)
 
-COMMITTED_PIPELINE = frozenset({"committed", "success", "partial_success", "completed"})
+# Facade list may use `status` (e.g. extracted) or `pipeline_status` (e.g. committed).
+READY_DOC_STATUSES = frozenset(
+    {
+        "committed",
+        "success",
+        "succeeded",
+        "partial_success",
+        "completed",
+        "extracted",
+        "done",
+    }
+)
 SUCCESS_JOB = frozenset(
     {
         KgBuildJob.Status.SUCCESS,
@@ -29,10 +40,13 @@ def _doc_ids_from_8d_list(payload: Dict[str, Any], max_docs: int, *, seen: Optio
         if not isinstance(item, dict):
             continue
         doc_id = item.get("doc_id") or ""
-        status = (item.get("pipeline_status") or "").lower()
+        status = (item.get("pipeline_status") or item.get("status") or "").lower()
+        run_status = (item.get("latest_run_status") or "").lower()
         if not doc_id or doc_id in seen:
             continue
-        if status and status not in COMMITTED_PIPELINE:
+        if run_status == "failed":
+            continue
+        if status and status not in READY_DOC_STATUSES:
             continue
         seen.add(doc_id)
         ids.append(str(doc_id))

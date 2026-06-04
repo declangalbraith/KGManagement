@@ -1,0 +1,222 @@
+namespace EightDRuntime
+
+# EightD KG Current Runtime Contract for Django (schema v0.1.0 / pipeline-v0.1.0)
+# Runtime entity subset enforced by 8D KG service; relations trimmed to allowed runtime types only.
+
+ProductInstance(Product Instance): EntityType
+	desc: A specific physical machine that has been shipped, uniquely identified by its product serial number.
+	properties:
+		serialNumber(Serial Number): Text
+			index: Text
+			constraint: NotNull,Unique
+		assetCode(Asset Code): Text
+			index: Text
+		commissionDate(Commission Date): Text
+		status(Status): Text
+			index: Text
+		ownerName(Owner Name): Text
+			index: Text
+		siteCity(Site City): Text
+			index: Text
+		siteCountry(Site Country): Text
+		siteCode(Site Code): Text
+			index: Text
+	relations:
+		has8D(Has 8D Report): EightDReport
+		hasCurrentPart(Has Current Part): PartSerial
+		hasEvent(Has Event): ProductEvent
+		ownedBy(Owned By): Organization
+
+PartSerial(Part Serial): EntityType
+	desc: A physical installed part, uniquely identified by serial number plus batch number, installed on a ProductInstance.
+	properties:
+		status(Status): Text
+			index: Text
+		batchNo(Batch Number): Text
+			index: Text
+		serialNumber(Serial Number): Text
+			index: Text
+		supplierName(Supplier Name): Text
+			index: Text
+	relations:
+		involvedIn8D(Involved In 8D): EightDReport
+		involvedInEvent(Involved In Event): ProductEvent
+		replacedBy(Replaced By): PartSerial
+		replaces(Replaces): PartSerial
+		suppliedBy(Supplied By): Organization
+		installedOn(Installed On): ProductInstance
+
+ProductEvent(Product Event): EntityType
+	desc: An event on a product (fault, anomaly, complaint, test) that occurs on a ProductInstance and may trigger an 8D report.
+	properties:
+		eventId(Event ID): Text
+			index: Text
+		eventCode(Event Code): Text
+			index: Text
+		eventType(Event Type): Text
+			index: Text
+		severity(Severity): Text
+			index: Text
+		symptom(Symptom): Text
+			index: Text
+		eventTime(Event Time): Text
+			index: Text
+		status(Status): Text
+			index: Text
+		reporterName(Reporter Name): Text
+			index: Text
+	relations:
+		happenedOn(Happened On): ProductInstance
+		responsibleOrg(Responsible Organization): Organization
+		relatedFailureMode(Related Failure Mode): FailureMode
+		relatedSerial(Related Serial): PartSerial
+		has8DReport(Has 8D Report): EightDReport
+		reportedByPerson(Reported By): Person
+		involvesPerson(Involves Person): Person
+
+EightDReport(8D Report): EntityType
+	desc: An 8D problem analysis report, uniquely identified by reportNo, linked to a source event; includes D2/D4/D5/D7 stages; same reportNo is merged.
+	properties:
+		reportNo(Report Number): Text
+			index: Text
+			constraint: NotNull,Unique
+		issueTitle(Issue Title): Text
+			index: Text
+		reportStatus(Report Status): Text
+			index: Text
+		d2ProblemStatement(D2 Problem Statement): Text
+			index: TextAndVector
+		d4RootCauseSummary(D4 Root Cause Summary): Text
+			index: TextAndVector
+		d5PermanentCorrectionSummary(D5 Permanent Correction Summary): Text
+			index: TextAndVector
+		d7PreventionSummary(D7 Prevention Summary): Text
+			index: TextAndVector
+		ownerName(Owner Name): Text
+			index: Text
+		ownerRole(Owner Role): Text
+	relations:
+		sourceEvent(Source Event): ProductEvent
+		affectedProduct(Affected Product): ProductInstance
+		affectedSerial(Affected Serial): PartSerial
+		rootCause(Root Cause): CauseItem
+		correctiveAction(Corrective Action): ActionItem
+		preventiveAction(Preventive Action): ActionItem
+		responsibleOrg(Responsible Organization): Organization
+		authoredByPerson(Authored By): Person
+		reviewedByPerson(Reviewed By): Person
+		involvesPerson(Involves Person): Person
+		hasChunk(Has Chunk): Chunk
+
+CauseItem(Cause Item): EntityType
+	desc: A cause in an 8D report; causeType values include root cause, intermediate cause, and direct cause; causal chains connect via "leads to" / "causes".
+	properties:
+		causeId(Cause ID): Text
+			index: Text
+		title(Title): Text
+			index: Text
+		causeType(Cause Type): Text
+			index: Text
+		isVerified(Is Verified): Text
+			index: Text
+		evidence(Evidence): Text
+	relations:
+		relatedFailureMode(Related Failure Mode): FailureMode
+		relatedSerial(Related Serial): PartSerial
+		belongsToReport(Belongs To Report): EightDReport
+		relatedEvent(Related Event): ProductEvent
+
+ActionItem(Action Item): EntityType
+	desc: An action in an 8D report; actionType values include containment D3, corrective D5, preventive D7, and root cause analysis D4.
+	properties:
+		actionId(Action ID): Text
+			index: Text
+		title(Title): Text
+			index: Text
+		actionType(Action Type): Text
+			index: Text
+		status(Status): Text
+			index: Text
+		ownerName(Owner Name): Text
+			index: Text
+	relations:
+		belongsToReport(Belongs To Report): EightDReport
+		verifiesCause(Verifies Cause): CauseItem
+		relatedEvent(Related Event): ProductEvent
+		targetSerial(Target Serial): PartSerial
+		targetProduct(Target Product): ProductInstance
+		responsibleOrg(Responsible Organization): Organization
+		ownedByPerson(Owned By): Person
+
+FailureMode(Failure Mode): EntityType
+	desc: A standardized failure mode name (e.g. pressure out of spec, seal failure, crack); synonymous expressions should merge into one FailureMode.
+	properties:
+		modeCode(Failure Mode Code): Text
+			index: Text
+			constraint: NotNull,Unique
+
+Organization(Organization): EntityType
+	desc: Company, department, customer, or supplier; orgType values include manufacturer, supplier, customer, department, and project team.
+	properties:
+		orgType(Organization Type): Text
+			index: Text
+		orgCode(Organization Code): Text
+			index: Text
+
+Person(Person): EntityType
+	desc: A person involved in an 8D report or event (author, reviewer, reporter, or owner).
+	properties:
+		personName(Name): Text
+			index: Text
+		personRole(Role): Text
+			index: Text
+		orgName(Organization Name): Text
+			index: Text
+	relations:
+		belongsToOrg(Belongs To Organization): Organization
+
+FailureProduct(Failure Product): EntityType
+	desc: A standardized failure product name; synonymous expressions should merge into one FailureProduct.
+	properties:
+		productCode(Product Code): Text
+			index: Text
+			constraint: NotNull,Unique
+		productName(Product Name): Text
+			index: Text
+	relations:
+		hasMention(Has Mention): FailureProductMention
+
+FailureProductMention(Failure Product Mention): EntityType
+	desc: A surface mention of a failure product in a document, linkable to a standardized FailureProduct.
+	properties:
+		surfaceForm(Surface Form): Text
+			index: Text
+		mentionContext(Mention Context): Text
+	relations:
+		instanceOfFailureProduct(Instance Of Failure Product): FailureProduct
+		mentionedIn(Mentioned In): Chunk
+
+Chunk(Document Chunk): EntityType
+	desc: A text or table segment split from an 8D document; chunk_id format is reportNo#section_path#para_idx.
+	properties:
+		chunkId(Chunk ID): Text
+			index: Text
+			constraint: NotNull,Unique
+		sectionPath(Section Path): Text
+			index: Text
+		paraIdx(Paragraph Index): Text
+		chunkRole(Chunk Role): Text
+			index: Text
+		text(Text Content): Text
+			index: TextAndVector
+		tokenCount(Token Count): Text
+		isTable(Is Table): Text
+		isPlaceholder(Is Placeholder): Text
+	relations:
+		chunkOfReport(Chunk Of Report): EightDReport
+		mentionsFailureProduct(Mentions Failure Product): FailureProductMention
+		mentionsProduct(Mentions Product): ProductInstance
+		mentionsSerial(Mentions Serial): PartSerial
+		mentionsFailureMode(Mentions Failure Mode): FailureMode
+		mentionsOrg(Mentions Organization): Organization
+		mentionsPerson(Mentions Person): Person

@@ -30,7 +30,8 @@ export default {
 					dataSource: 'Data source',
 					sourcePlaceholder: 'Paste failure reports, maintenance records, or standard documents...',
 					uploadFile: 'Upload document',
-					uploadHint: 'Supports .txt, .md, .docx — use either upload or text input',
+					uploadHint:
+						'Supports .txt, .md, .doc, .docx, .pdf — upload or paste text (.doc is converted to .docx before build)',
 					aiExtract: 'AI extract',
 					extracting: 'Extracting...',
 					extractDone: 'AI extracted {n} entities and {l} relations. Please review.',

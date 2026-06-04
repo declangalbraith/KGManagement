@@ -44,7 +44,10 @@ function bfsCluster(
 	return visited;
 }
 
-/** Keep one connected cluster (BFS from seeds or first report). maxNodes<=0 = full cluster. */
+/**
+ * Keep one connected cluster (BFS from seeds or first report). maxNodes<=0 = full cluster.
+ * Do not use for multi-document overview — disjoint report subgraphs need applyMergedOverviewGraph (QA page).
+ */
 export function focusGraphCluster(
 	nodes: GraphNode[],
 	links: GraphLink[],

@@ -233,7 +233,12 @@ import {
 	type KgBuildJobItem,
 } from '/@/api/business/kgAgent';
 import { kagAsk, type GraphSubgraphDelta, type GraphSubgraphPayload, type GraphTypeLegendItem } from '/@/api/business/kag';
-import { focusGraphCluster, HIGHLIGHT_CLUSTER_MAX_NODES, MAX_CLUSTER_NODES } from '../../graph/cluster';
+import {
+	BUILDER_OVERVIEW_LIMIT,
+	focusGraphCluster,
+	HIGHLIGHT_CLUSTER_MAX_NODES,
+	MAX_CLUSTER_NODES,
+} from '../../graph/cluster';
 import type { GraphLink, GraphNode } from '../../graph/types';
 import { FALLBACK_LEGEND, mapApiLink, mapApiNode } from '../../graph/utils';
 import { graphChatWelcome } from '../../graph/mock';
@@ -339,14 +344,43 @@ function jobLabel(job: KgBuildJobItem): string {
 	return job.doc_id || `#${job.id}`;
 }
 
-function applyOverviewPayload(payload: GraphSubgraphPayload) {
+/** 多文档总览：保留后端合并后的全部子图（各报告子图通常互不连通，不能 BFS 只取一团）。 */
+function applyMergedOverviewGraph(
+	nodes: GraphNode[],
+	links: GraphLink[],
+	legend?: Record<string, GraphTypeLegendItem>,
+) {
+	graphNodes.value = nodes;
+	graphLinks.value = links;
+	if (legend) {
+		applyTypeLegend(legend);
+	} else {
+		const nextLegend: Record<string, GraphTypeLegendItem> = {};
+		for (const n of nodes) {
+			const key = n.vizType || n.spgType || 'other';
+			const item =
+				typeLegend.value[n.vizType] ||
+				typeLegend.value[n.spgType] ||
+				typeLegendConfig.value[key];
+			if (item && !nextLegend[key]) nextLegend[key] = item;
+		}
+		typeLegend.value = nextLegend;
+	}
+	visibleTypes.value = new Set(Object.keys(typeLegendConfig.value));
+}
+
+function applyOverviewPayload(payload: GraphSubgraphPayload, mode: 'merged' | 'single') {
 	const nodes = (payload.nodes || []).map(mapApiNode);
 	const links = (payload.links || []).map(mapApiLink);
 	if (!nodes.length) {
 		const apiErr = (payload as { error?: string }).error;
 		throw new Error(apiErr || t('message.pages.knowledge.graph.empty'));
 	}
-	applyFocusedGraph(nodes, links, null, payload.typeLegend);
+	if (mode === 'merged') {
+		applyMergedOverviewGraph(nodes, links, payload.typeLegend);
+	} else {
+		applyFocusedGraph(nodes, links, null, payload.typeLegend, BUILDER_OVERVIEW_LIMIT);
+	}
 	if (payload.truncated) {
 		ElMessage.warning(t('message.pages.knowledge.graph.truncated'));
 	}
@@ -399,14 +433,17 @@ async function loadBuildJobOptions() {
 
 async function loadOverviewFromEightD(docId: string) {
 	const payload = await kgFetchGraph({ docId });
-	applyOverviewPayload(payload);
+	applyOverviewPayload(payload, 'single');
 }
 
 async function loadOverviewFromEightDMerged() {
-	const payload = await kgFetchGraphOverview({ limit: MAX_CLUSTER_NODES, maxDocs: 20 });
-	applyOverviewPayload(payload);
-	if (payload.truncated) {
-		ElMessage.warning(t('message.pages.knowledge.graph.truncated'));
+	const payload = await kgFetchGraphOverview({ limit: BUILDER_OVERVIEW_LIMIT, maxDocs: 20 });
+	applyOverviewPayload(payload, 'merged');
+	const docCount = payload.mergedDocCount ?? 0;
+	if (docCount > 1) {
+		ElMessage.success(t('message.pages.knowledge.builder.overviewMultiDoc', { n: docCount }));
+	} else if (docCount === 1) {
+		ElMessage.info(t('message.pages.knowledge.builder.overviewSingleDoc'));
 	}
 }
 

@@ -30,7 +30,7 @@ export default {
 					dataSource: '數據源輸入',
 					sourcePlaceholder: '粘貼故障報告、維修記錄或標準文檔...',
 					uploadFile: '上傳文檔',
-					uploadHint: '支持 .txt、.md、.docx，與文本輸入二選一',
+					uploadHint: '支持 .txt、.md、.doc、.docx、.pdf，與文本輸入二選一（.doc 將自動轉為 .docx 後構建）',
 					aiExtract: 'AI 智能抽取',
 					extracting: '正在智能抽取...',
 					extractDone: 'AI 已從文本中提取 {n} 個實體和 {l} 條關係，請進行人工審核。',
