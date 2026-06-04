@@ -25,18 +25,18 @@ SPG_TYPE_VIZ_MAP: Dict[str, str] = {
 }
 
 VIZ_TYPE_LEGEND: Dict[str, Dict[str, Any]] = {
-    "report": {"label": "8D报告", "color": "#4f46e5", "icon": "📄", "group": 7},
-    "event": {"label": "产品事件", "color": "#ef4444", "icon": "⚠", "group": 1},
-    "cause": {"label": "原因项", "color": "#f59e0b", "icon": "🔍", "group": 3},
-    "action": {"label": "措施项", "color": "#10b981", "icon": "✓", "group": 4},
-    "product": {"label": "产品", "color": "#06b6d4", "icon": "🚆", "group": 6},
-    "part": {"label": "部件", "color": "#3b82f6", "icon": "⚙", "group": 2},
-    "failure": {"label": "失效模式", "color": "#dc2626", "icon": "!", "group": 1},
-    "org": {"label": "组织", "color": "#a855f7", "icon": "🏢", "group": 5},
-    "installation": {"label": "安装记录", "color": "#64748b", "icon": "🔧", "group": 2},
-    "category": {"label": "事件分类", "color": "#94a3b8", "icon": "📂", "group": 5},
-    "chunk": {"label": "文档片段", "color": "#cbd5e1", "icon": "📝", "group": 7},
-    "other": {"label": "其他", "color": "#9ca3af", "icon": "•", "group": 5},
+    "report": {"label": "8D Report", "color": "#4f46e5", "icon": "8D", "group": 7},
+    "event": {"label": "Product Event", "color": "#ef4444", "icon": "Ev", "group": 1},
+    "cause": {"label": "Cause Item", "color": "#f59e0b", "icon": "Ca", "group": 3},
+    "action": {"label": "Action Item", "color": "#10b981", "icon": "Ac", "group": 4},
+    "product": {"label": "Product", "color": "#06b6d4", "icon": "Pr", "group": 6},
+    "part": {"label": "Part", "color": "#3b82f6", "icon": "Pt", "group": 2},
+    "failure": {"label": "Failure Mode", "color": "#dc2626", "icon": "Fm", "group": 1},
+    "org": {"label": "Organization", "color": "#a855f7", "icon": "Or", "group": 5},
+    "installation": {"label": "Installation", "color": "#64748b", "icon": "In", "group": 2},
+    "category": {"label": "Event Category", "color": "#94a3b8", "icon": "Ct", "group": 5},
+    "chunk": {"label": "Document Chunk", "color": "#cbd5e1", "icon": "Ch", "group": 7},
+    "other": {"label": "Other", "color": "#9ca3af", "icon": "Ot", "group": 5},
 }
 
 

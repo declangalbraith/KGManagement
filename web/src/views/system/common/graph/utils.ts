@@ -2,7 +2,18 @@ import type { GraphSubgraphPayload, GraphTypeLegendItem, GraphVizLink, GraphVizN
 import type { GraphLink, GraphNode } from './types';
 
 export const FALLBACK_LEGEND: Record<string, GraphTypeLegendItem> = {
-	other: { label: '其他', color: '#9ca3af', icon: '•' },
+	report: { label: '8D Report', color: '#4f46e5', icon: '8D' },
+	event: { label: 'Product Event', color: '#ef4444', icon: 'Ev' },
+	cause: { label: 'Cause Item', color: '#f59e0b', icon: 'Ca' },
+	action: { label: 'Action Item', color: '#10b981', icon: 'Ac' },
+	product: { label: 'Product', color: '#06b6d4', icon: 'Pr' },
+	part: { label: 'Part', color: '#3b82f6', icon: 'Pt' },
+	failure: { label: 'Failure Mode', color: '#dc2626', icon: 'Fm' },
+	org: { label: 'Organization', color: '#a855f7', icon: 'Or' },
+	installation: { label: 'Installation', color: '#64748b', icon: 'In' },
+	category: { label: 'Event Category', color: '#94a3b8', icon: 'Ct' },
+	chunk: { label: 'Document Chunk', color: '#cbd5e1', icon: 'Ch' },
+	other: { label: 'Other', color: '#9ca3af', icon: 'Ot' },
 };
 
 export type ReviewStatus = 'pending' | 'approved' | 'rejected';
