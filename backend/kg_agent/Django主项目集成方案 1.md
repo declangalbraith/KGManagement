@@ -1126,3 +1126,218 @@ Django 提交审核结果时，应带 `draft_id`、`base_version`、`review_deci
 - 接入边界明确，知道未来新增需求由 Django 做还是由 8D 做
 
 只有业务层、技术层、工程层三层都闭环，才算真正完成“更强折中”的收口。
+
+---
+
+## 16. Django 侧知识库图谱构建重构实施清单
+
+> 本节为 **Django 工程师落地清单**，与第一次对齐会冻结项一一对应。  
+> BFF 路由与 facade 字段对照见同目录 [`API 1.md`](API%201.md) **§2.2**。  
+> 职责分工见 [`Django与8D职责拆分清单 2.md`](Django%E4%B8%8E8D%E8%81%8C%E8%B4%A3%E6%8B%86%E5%88%86%E6%B8%85%E5%8D%95%202.md)。
+
+### 16.1 第一次对齐会议程 — 覆盖矩阵
+
+**结论：议程项均已纳入本节实施清单，但绝大多数尚未「完成」；仅少数在仓库中已有初版实现。**
+
+| 议程项 | 本节章节 | 仓库现状 | 目标状态 |
+|--------|----------|----------|----------|
+| **冻结接入路径** `/quality/8d/`、`/api/`、`/ws/` 预留 | §16.4.8 | `docker_env/nginx` 未配置；Django 无该路由 | 待实施 `nginx-quality-8d` |
+| **冻结认证** JWT claims + `KG_8D_JWT_*` | §16.4.1 | `kg_agent/auth/jwt_token.py` + settings 已有 | 联调验收；补 README 最小联调脚本 |
+| **冻结来源字段**（含 `org_id`、`project_id`、`idempotency_key`） | §16.4.3 | `KgBuildJob` 部分字段；上传未接业务键；缺 `project_id` | 待 `SourceContext` + `build_job` 重构 |
+| **冻结 facade** 仅 `/integration/8d/*` | 全文 | `EightDIntegrationClient` 已走 facade；KAG QA 仍独立 | 保持；禁止新增内部路由调用 |
+| **冻结人审流程** GraphDraft → Django 审 → 8D 入图 | §16.5 | 无 BFF/UI | 待 `graph-draft-bff` + `graph-draft-ui` |
+| **菜单 + 子路径代理** | §16.4.8、§16.4.8.1 | `/knowledge` 有；无 `/quality/8d` 菜单与代理 | 待 `menu-nav-8d` |
+| **内部 JWT 签发** | §16.4.1 | 已实现 | 联调验收即可 |
+| **业务页跳转** 8D 上传/任务/结果/图谱 | §16.4.8.1 | `onViewReport`/`onCreate8d` 仍为 toast | 待 `business-deep-links` |
+| **facade DTO + API client/类型** | §16.4.2、§16.4.7 | `kgAgent.ts` 部分类型；无 `eightDIntegration.ts` | 待 `facade-dto-types` |
+| **业务对象 → source_* 映射** | §16.4.3 | 默认 `knowledge:upload:{uuid}` | 待 issue/8d 入口接入 |
+| **任务状态页** 五态展示 | §16.4.4、§16.4.7、§16.4.8.2 | Builder 内嵌；枚举未对齐 facade | 待 `task-status-page` |
+| **GraphDraft 审核原型** | §16.5.2 | 无 | 待阶段二 |
+
+### 16.2 仓库现状与主要缺口
+
+Django 侧已有 app `backend/kg_agent`：
+
+- HTTP 客户端：[`client/eight_d.py`](client/eight_d.py) → `/api/v1/integration/8d/*`
+- JWT：[`auth/jwt_token.py`](auth/jwt_token.py)
+- 本地影子表：[`models.py`](models.py) `KgBuildJob`
+- BFF：[`views.py`](views.py) → `/api/kg-agent/build/*`、`/api/kg-agent/graph/*`
+
+前端构建页：[`web/src/views/system/knowledge/components/KnowledgeGraphBuilder.vue`](../../web/src/views/system/knowledge/components/KnowledgeGraphBuilder.vue) + [`web/src/api/business/kgAgent.ts`](../../web/src/api/business/kgAgent.ts)。
+
+| 缺口项 | 当前状态 |
+|--------|----------|
+| JWT + `KG_8D_JWT_*` | 已实现 |
+| 来源字段 + `idempotency_key` | 模型有；上传默认随机键；缺 `project_id`、业务映射 |
+| 任务状态 `pending/running/succeeded/failed/cancelled` | 本地为 `queued/success`；未透传 `cancellable`/`retryable` |
+| 按 `source_record_id` 回查 | `list_documents` 误用 `page/page_size`（应为 `offset/limit`） |
+| cancel / retry | 未实现 |
+| GraphDraft | 未实现 |
+| `/quality/8d/` | nginx 未配置 |
+| `KgBuildJob` 迁移 | `migrations/` 仅 `__init__.py` |
+
+```text
+用户 → Django /api/kg-agent/* (BFF)
+         → Bearer JWT → 8D /api/v1/integration/8d/*
+前端构建/图谱 → kgAgent.ts → Django BFF（不直连 8D 内部 /documents、/extraction）
+/quality/8d/*  → nginx 反代 8D SPA/API（与 Django BFF 并行）
+```
+
+### 16.3 实施待办（Checklist）
+
+- [ ] **client-facade-fix** — 修复 `eight_d.py`（`offset/limit`、`get_document`、cancel/retry、`project_id`）；新增 `SourceContext`；重构 `build_job` 上传（`org_id` 来自 JWT 写入 job/幂等键）
+- [ ] **status-model-migration** — `KgBuildJob` 状态对齐 facade；`makemigrations kg_agent`；`map_pipeline_status` + `BuildStatusView` 透传 `cancellable`/`retryable`/`error`
+- [ ] **bff-endpoints** — `build/lookup/`、`build/by-source/`、`build/<pk>/cancel/`、`build/<pk>/retry/`、`build/<pk>/document/`
+- [ ] **facade-dto-types** — `web/src/types/eightDIntegration.ts` 覆盖 facade DTO；`kgAgent`/`kgGraphDraft` 禁止引用 8D 内部 extraction 类型
+- [ ] **menu-nav-8d** — 菜单：知识图谱构建 `/knowledge`、8D 子系统 `/quality/8d/`；不手改 `fixtures/` 除非授权，输出管理台配置说明
+- [ ] **business-deep-links** — `web/src/utils/eightDNavigation.ts`；issue/8d-reports/knowledge 深链；替换 `KnowledgeGraph` 中 toast 占位
+- [ ] **task-status-page** — 知识库「任务」Tab 或 `/knowledge/tasks/:jobId`；五态 + 取消/重试 + `build/lookup` 回查
+- [ ] **frontend-build-phase1** — `KnowledgeGraphBuilder`：来源 query、五态、取消/重试
+- [ ] **nginx-quality-8d** — `docker_env/nginx` 配置 `/quality/8d/`、`/api/`、`/ws/`
+- [ ] **graph-draft-bff** — GraphDraft client/views/serializers + `KgBuildJob` 审核字段
+- [ ] **graph-draft-ui** — 审核 Tab：实体表/关系表/证据/校验区
+- [ ] **tests-docs-e2e** — 单元/集成测试 + Django 视角 E2E 联调记录
+
+**实施顺序**：`client-facade-fix` → 状态/迁移 → BFF 端点 → 前端构建页 → 第一轮验收 → GraphDraft → 审核 UI。`nginx-quality-8d` 可与第一轮验收并行。
+
+### 16.4 阶段一：第一轮联调闭环（P0）
+
+#### 16.4.1 配置与 JWT
+
+- 核对 `backend/conf/env.py`、`application/settings.py` 中 `KG_8D_BASE_URL`、`KG_8D_JWT_SECRET`、`KG_8D_JWT_ALGORITHM`、`KG_8D_JWT_TTL_SEC`。
+- `kg_agent/README.md` 补充最小联调：JWT → health → upload → pipeline → poll → result/graph → `GET documents?source_record_id=`。
+
+#### 16.4.2 8D Client（facade 契约）
+
+文件：`client/eight_d.py`
+
+- 修复 `list_documents`：`offset` / `limit`，支持 `source_record_type`。
+- 新增：`get_document`、`cancel_pipeline`、`retry_pipeline`。
+- 上传 multipart 可选 `project_id`；`operator_id` 不传。`org_id` 由 JWT 写入 `KgBuildJob` 并参与同源幂等键；若联调要求表单带 `org_id` 且与 token 一致再冗余透传（见 `Django token claims 对接约定 1.md`）。
+
+#### 16.4.3 来源上下文与幂等键
+
+新建 `services/source_context.py`：
+
+| 场景 | source_module | source_record_type | source_record_id |
+|------|---------------|-------------------|------------------|
+| 知识库构建页 | `knowledge` | `knowledge_upload` | 请求传入或 `knowledge:upload:{uuid}` |
+| 质量问题单 `/issues/:id` | `quality_issue` | `quality_issue` | 业务主键 |
+| 8D 报告页 | `quality_8d` | `8d_report` | 报告 ID |
+
+幂等键：`{source_system}:{source_module}:{source_record_id}:8d-upload:v1`
+
+`create_build_job_from_upload` 从请求读取 `source_*`、`project_id`、`idempotency_key`；`KgBuildJob` 增加 `project_id`。
+
+#### 16.4.4 任务状态机
+
+- `KgBuildJob.Status`：`not_started`、`pending`、`running`、`succeeded`、`failed`、`cancelled`。
+- 新增：`cancellable`、`retryable`、`error_detail`（JSON）。
+- `BuildStatusView` 透传 facade 标准 `error` 对象。
+
+#### 16.4.5 Django BFF 端点扩展
+
+`urls.py` 在现有 `/api/kg-agent/` 下扩展（详见 `API 1.md` §2.2）：
+
+| 方法 | 路径 | 作用 |
+|------|------|------|
+| GET | `build/lookup/` | 按 `source_*` 查 8D 文档 + 合并本地 job |
+| GET | `build/by-source/` | 单业务键快捷回查 |
+| POST | `build/<pk>/cancel/` | 代理 cancel |
+| POST | `build/<pk>/retry/` | 代理 retry |
+| GET | `build/<pk>/document/` | 代理文档详情 |
+
+#### 16.4.6 数据库迁移
+
+- 修改 `models.py` 后本地执行 `python manage.py makemigrations kg_agent` / `migrate`（禁止手改 `migrations/*.py`）。
+- 旧状态映射：`queued→pending`、`success→succeeded`。
+
+#### 16.4.7 前端（保持 `web/src/views/system/knowledge`）
+
+- `kgAgent.ts`：来源字段、cancel/retry/lookup、五态轮询（含 `cancelled`、`succeeded`）。
+- `KnowledgeGraphBuilder.vue`：状态区、取消/重试、路由 query 注入 `source_*`。
+- `KnowledgeGraph/index.vue`：文档下拉展示 `source_record_id`；图谱仅走 `kg-agent`。
+- i18n：`web/src/i18n/pages/knowledge/*.ts` 五态与操作文案。
+
+#### 16.4.8 部署：`/quality/8d/` 子路径
+
+`docker_env/nginx/` 增加：
+
+- `/quality/8d/` → 8D 前端 SPA
+- `/quality/8d/api/` → 8D API
+- `/quality/8d/ws/` → WebSocket（预留）
+
+Django BFF 仍为 `/api/kg-agent/`。
+
+##### 16.4.8.1 菜单与业务页深链（`menu-nav-8d`、`business-deep-links`）
+
+**菜单**（后台配置，不默认手改 fixtures）：
+
+- 「知识图谱构建」→ `/knowledge`（Tab：构建 / 图谱 / 任务 / 审核）
+- 「8D 知识库」→ `/quality/8d/`（8D SPA，经 nginx）
+
+**深链**（拟建 `web/src/utils/eightDNavigation.ts`）：
+
+| 场景 | Django 内链 | 8D SPA（子路径） |
+|------|-------------|------------------|
+| 上传 | `/knowledge?tab=builder&source_*=...` | `/quality/8d/upload?...` |
+| 任务状态 | `/knowledge?tab=tasks&job_id=` | `/quality/8d/documents/{doc_id}` |
+| 抽取结果 | BFF `build/{id}/result/` 驱动 UI | `/quality/8d/.../result` |
+| 图谱 | `/knowledge?tab=graph&doc_id=` | `/quality/8d/graph?doc_id=` |
+
+接入页：`report8d/index.vue`、`issues/*`、`KnowledgeGraph/index.vue`（`onViewReport` / `onCreate8d`）。
+
+##### 16.4.8.2 任务状态页（`task-status-page`）
+
+不单靠 Builder 内嵌进度：
+
+- **方案 A（推荐）**：`knowledge/index.vue` 增加「任务」Tab，`kgBuildList` + 五态 + 跳转结果/图谱/审核。
+- **方案 B**：独立路由 `/knowledge/tasks/:jobId`。
+- 共用 `build/lookup` 按业务单据聚合。
+
+#### 16.4.9 阶段一验收
+
+1. 上传带完整 `source_*` + `idempotency_key`。
+2. pipeline 轮询至 `succeeded` / `failed` / `cancelled`。
+3. 获取 `result`（`entities`+`relationships`）与 `graph`（`nodes`+`edges`）。
+4. `GET build/lookup?source_record_id=...` 回查成功。
+5. `trace_id` 在 Django 与 8D 可串联。
+
+### 16.5 阶段二：GraphDraft 人审链路
+
+依赖 8D facade：`GET/POST .../graph-draft`（save / submit / commit）。
+
+#### 16.5.1 后端 BFF
+
+- `client/graph_draft.py`、`views/graph_draft.py`、`serializers/graph_draft.py`
+- 路由：`build/<pk>/graph-draft/`、`.../save/`、`.../submit/`、`.../commit/`
+- `KgBuildJob` 或 `KgGraphDraftReview` 记录 `draft_id`、`draft_version`、`review_status`、`committed_at`
+
+#### 16.5.2 前端审核原型（`graph-draft-ui`）
+
+组件 `KnowledgeGraphDraftReview.vue`（知识库 Tab）：
+
+- 实体表、关系表、证据区（只读）、校验错误区
+- 流程：save → submit → commit；`succeeded` 后引导进入审核
+
+API：`web/src/api/business/kgGraphDraft.ts` + `web/src/types/eightDIntegration.ts`。
+
+#### 16.5.3 阶段二验收
+
+1. `succeeded` 后出现待审 draft。
+2. Django 修改后 save/submit 成功。
+3. 校验失败可定位；commit 后图谱可见。
+4. 本地审计记录操作人。
+
+### 16.6 明确不做
+
+- Django 不 import 8D 进程代码、不直连 Neo4j/MinIO/Celery。
+- 不以 KAG `build/extract/commit` 为主构建路径。
+- 不手改 `migrations/*.py`、不默认手改 `fixtures/`。
+- `schema_manager` 多知识类型平台化与本节解耦。
+
+### 16.7 风险与依赖
+
+- GraphDraft 完整验收依赖 8D `graph-draft` facade 就绪。
+- 构建/预览用 8D facade；KAG QA 仍可能走 Neo4j，UI 需区分「构建图谱」与「问答子图」。
+- 前端继续在 `web/src/views/system/**`（已授权改框架知识库页）。

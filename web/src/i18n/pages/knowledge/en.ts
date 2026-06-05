@@ -8,6 +8,8 @@ export default {
 				tabRetrieval: 'Search',
 				tabGraph: 'Knowledge graph',
 				tabBuilder: 'Graph builder',
+				tabTasks: 'Build tasks',
+				tabReview: 'Graph review',
 				tabManagement: 'Knowledge management',
 				heroTag: 'Enterprise knowledge repository',
 				heroTitle: 'QConnect Knowledge Base',

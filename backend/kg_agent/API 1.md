@@ -246,7 +246,74 @@ Token 有效期由部署配置控制；当前 Django / 8D 对齐配置名为 `KG
 - `GET /integration/8d/documents/{doc_id}/result` 返回 `IntegrationResultResponse`
 - `GET /integration/8d/documents/{doc_id}/graph` 返回 `IntegrationGraphResponse`
 
-更完整的接入语义、字段解释和 DTO 示例，见根目录 [Django主项目集成方案.md](../Django%E4%B8%BB%E9%A1%B9%E7%9B%AE%E9%9B%86%E6%88%90%E6%96%B9%E6%A1%88.md) 与 [Django与8D职责拆分清单.md](../Django%E4%B8%8E8D%E8%81%8C%E8%B4%A3%E6%8B%86%E5%88%86%E6%B8%85%E5%8D%95.md)。
+更完整的接入语义、字段解释和 DTO 示例，见同目录 [Django主项目集成方案 1.md](Django%E4%B8%BB%E9%A1%B9%E7%9B%AE%E9%9B%86%E6%88%90%E6%96%B9%E6%A1%88%201.md) **§16** 与 [Django与8D职责拆分清单 2.md](Django%E4%B8%8E8D%E8%81%8C%E8%B4%A3%E6%8B%86%E5%88%86%E6%B8%85%E5%8D%95%202.md)。
+
+---
+
+## 2.2 Django BFF 与前端消费（`kg_agent`）
+
+> Django **只**通过 BFF 调用上文 §2.1 integration facade，**禁止**前端或 Django 直连 8D 内部 `/documents`、`/graph`、`/extraction` 等路由。  
+> 实施清单与第一次对齐会覆盖矩阵见 [Django主项目集成方案 1.md §16](Django%E4%B8%BB%E9%A1%B9%E7%9B%AE%E9%9B%86%E6%88%90%E6%96%B9%E6%A1%88%201.md#16-django-侧知识库图谱构建重构实施清单)。
+
+### 2.2.1 Django BFF 路由 ↔ 8D Facade 映射
+
+Django 对外前缀：`/api/kg-agent/`（见 `application/urls.py` → `kg_agent/urls.py`）。
+
+| Django BFF（目标） | 方法 | 代理 8D Facade | 现状 |
+|-------------------|------|----------------|------|
+| `build/upload/` | POST | `POST /integration/8d/documents` | 已实现 |
+| `build/` | GET | 本地 `KgBuildJob` 列表 | 已实现 |
+| `build/{id}/status/` | GET | `GET .../documents/{doc_id}/pipeline` | 已实现；待透传 `cancellable`/`retryable`/标准 `error` |
+| `build/{id}/result/` | GET | `GET .../result` + viz 映射 | 已实现 |
+| `graph/` | GET | `GET .../graph` | 已实现 |
+| `graph/overview/` | GET | `GET /integration/8d/graphs` 或按文档合并 | 已实现（overview 可选） |
+| `build/lookup/` | GET | `GET /integration/8d/documents?source_*` + 本地 job | **待实现** |
+| `build/by-source/` | GET | 同上快捷封装 | **待实现** |
+| `build/{id}/cancel/` | POST | `POST .../pipeline/cancel` | **待实现** |
+| `build/{id}/retry/` | POST | `POST .../pipeline/retry` | **待实现** |
+| `build/{id}/document/` | GET | `GET .../documents/{doc_id}` | **待实现** |
+| `build/{id}/graph-draft/` | GET | `GET .../graph-draft` | **待实现**（阶段二） |
+| `build/{id}/graph-draft/save/` | POST | `POST .../graph-draft/save` | **待实现** |
+| `build/{id}/graph-draft/submit/` | POST | `POST .../graph-draft/submit` | **待实现** |
+| `build/{id}/graph-draft/commit/` | POST | `POST .../graph-draft/commit` | **待实现** |
+
+认证：Django BFF 使用 dvadmin 登录态；调用 8D 时由 `issue_integration_token(user)` 签发 Bearer JWT（claims：`sub`、`username`、`role`、`org_id`、`exp`；配置 `KG_8D_JWT_*`）。
+
+### 2.2.2 来源字段（上传 → 8D）
+
+Django 上传 BFF 转发至 facade 时，multipart / 表单至少携带：
+
+| 字段 | 说明 |
+|------|------|
+| `source_system` | 默认 `django-main`（`KG_8D_SOURCE_SYSTEM`） |
+| `source_module` | 如 `knowledge`、`quality_issue` |
+| `source_record_id` | 主项目业务键 |
+| `source_record_type` | 如 `knowledge_upload`、`quality_issue` |
+| `project_id` | 可选，项目域隔离 |
+| `idempotency_key` | 同源幂等，组合含 `org_id`（见 §2.1） |
+| `org_id` | 以 JWT 为主；落库于 `KgBuildJob`；表单透传仅在与 token 一致时 |
+
+`operator_id` / `requested_by`：**不**作为身份真值；若传须与 token `sub` 一致。
+
+### 2.2.3 Facade DTO 与前端类型（`facade-dto-types`）
+
+- **8D 契约真源**：本文 §2.1 facade DTO 摘要 + [Django主项目集成方案 1.md §6.3.6](Django%E4%B8%BB%E9%A1%B9%E7%9B%AE%E9%9B%86%E6%88%90%E6%96%B9%E6%A1%88%201.md#636-integration-facade-dto-草案)。
+- **Django 前端类型文件（待建）**：`web/src/types/eightDIntegration.ts` — 覆盖 `IntegrationDocument*`、`IntegrationPipeline*`、`IntegrationResultResponse`、`IntegrationGraphResponse`、`GraphDraft*` 等稳定 DTO。
+- **API 封装**：`web/src/api/business/kgAgent.ts`（构建/图谱）、`web/src/api/business/kgGraphDraft.ts`（审核，阶段二）。
+- **禁止**：手写或引用 8D 内部 `/extraction` 聚合结构；结果展示以 `entities[]` + `relationships[]` 显式关系为准。
+
+### 2.2.4 已知实现缺口（对照 §2.1）
+
+| 项 | 说明 |
+|----|------|
+| `list_documents` 分页 | `client/eight_d.py` 当前误用 `page`/`page_size`，应改为 **`offset`/`limit`**（§2.1） |
+| 任务状态枚举 | BFF/前端应对齐 `not_started`/`pending`/`running`/`succeeded`/`failed`/`cancelled`，非 `queued`/`success` |
+| `KgBuildJob` 迁移 | 模型已定义，`makemigrations kg_agent` 待执行 |
+| 深链与菜单 | 见集成方案 **§16.4.8.1**；`KnowledgeGraph` 中报告跳转仍为占位 |
+
+### 2.2.5 实施待办索引
+
+与 [Django主项目集成方案 1.md §16.3](Django%E4%B8%BB%E9%A1%B9%E7%9B%AE%E9%9B%86%E6%88%90%E6%96%B9%E6%A1%88%201.md#163-实施待办checklist) 相同：`client-facade-fix`、`status-model-migration`、`bff-endpoints`、`facade-dto-types`、`menu-nav-8d`、`business-deep-links`、`task-status-page`、`frontend-build-phase1`、`nginx-quality-8d`、`graph-draft-bff`、`graph-draft-ui`、`tests-docs-e2e`。
 
 ---
 
